@@ -1,0 +1,35 @@
+{
+  "name": "code-indexer-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "build/code-indexer/src/index.js",
+  "bin": {
+    "code-indexer": "build/code-indexer/src/cli.js"
+  },
+  "exports": {
+    ".": "./build/code-indexer/src/index.js",
+    "./engine": "./build/code-indexer/src/engine/index.js",
+    "./config": "./build/code-indexer/src/config.js",
+    "./cache": "./build/code-indexer/src/engine/incremental/cache.js",
+    "./session": "./build/code-indexer/src/engine/session.js",
+    "./knowledge": "./build/code-indexer/src/engine/knowledge/index.js"
+  },
+  "scripts": {
+    "build": "tsc --noEmitOnError false; node -e \"try{require('fs').chmodSync('build/code-indexer/src/index.js','755');require('fs').chmodSync('build/code-indexer/src/cli.js','755')}catch(e){}\"",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "index": "node build/code-indexer/src/cli.js index"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@repo/code-graph-core": "workspace:*",
+    "@tools/shared": "workspace:*",
+    "ts-morph": "^24.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

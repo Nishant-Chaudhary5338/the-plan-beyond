@@ -1,0 +1,241 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens — single source of truth.
+ * Palette extracted from The Plan Beyond beta (teal canvas / emerald accent).
+ * Components consume ONLY semantic tokens (bg-surface, text-muted, …),
+ * never raw hex. Refine raw values here after exact browser extraction.
+ */
+@theme {
+  /* Type */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
+
+  /* Raw teal scale — extracted from the live app's section gradient. */
+  --color-teal-950: #002830;
+  --color-teal-900: #003138;
+  --color-teal-850: #003d42;
+  --color-teal-800: #005c63;
+  --color-teal-700: #0a6066;
+  --color-teal-600: #0c757c;
+  --color-emerald-500: #2eb872;
+  --color-emerald-400: #3dd68c;
+  --color-cyan-300: #74d3cb;
+
+  /* Semantic — surfaces (solid, kept dark enough for AA text contrast) */
+  --color-canvas: #003d42;
+  --color-canvas-deep: #002830;
+  --color-rail: #002830;
+  --color-surface: #0a4448;
+  --color-surface-raised: #0d4f54;
+  --color-surface-hover: #10565b;
+  --color-overlay: #0d1417;
+  --color-overlay-input: #161d21;
+
+  /* Semantic — text (tuned for WCAG AA ≥4.5:1 on --color-surface) */
+  --color-content: #f4f7f5;
+  --color-muted: #b3c8c4;
+  --color-faint: #95aea9;
+  --color-on-accent: #052b1d;
+
+  /* Semantic — lines */
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.16);
+  --color-line-overlay: rgba(255, 255, 255, 0.1);
+
+  /* Semantic — accent / status */
+  --color-accent: #2eb872;
+  --color-accent-hover: #34c77b;
+  --color-nav-active: #74d3cb;
+  --color-identifier: #4ade80;
+  --color-warning: #f2a93b;
+  --color-warning-surface: #1f1604;
+  --color-danger: #e08a8a;
+  --color-danger-surface: #2e1416;
+  --color-danger-line: #5a2327;
+  --color-cream: #f1ead6;
+
+  /* Focus ring */
+  --color-ring: #5fd4c8;
+
+  /* Radius */
+  --radius-card: 1.25rem;
+  --radius-panel: 1rem;
+  --radius-field: 0.75rem;
+
+  /* Shadows */
+  --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 24px 64px -16px rgba(0, 0, 0, 0.6);
+  --shadow-bar: 0 16px 40px -12px rgba(0, 0, 0, 0.55);
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Named animations (overlay / dialog / popover / toast) */
+  --animate-overlay-in: overlay-in 160ms var(--ease-out-soft);
+  --animate-overlay-out: overlay-out 120ms ease-in;
+  --animate-dialog-in: dialog-in 200ms var(--ease-out-soft);
+  --animate-dialog-out: dialog-out 140ms ease-in;
+  --animate-pop-in: pop-in 140ms var(--ease-out-soft);
+  --animate-fade-in: fade-in 150ms ease-out;
+  --animate-shake: shake 360ms var(--ease-out-soft);
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes dialog-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line);
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    color: var(--color-content);
+    background-color: var(--color-canvas);
+    /* Exact section gradient extracted from the live app. */
+    background-image: linear-gradient(145deg, #002830 0%, #005c63 60%, #0a6066 100%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Visible, consistent keyboard focus across the app. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  }
+}
+
+@layer utilities {
+  /* Frosted panel used by cards, table container, modals. */
+  .panel {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Thin custom scrollbar that matches the theme. */
+  .scroll-themed {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  .scroll-themed::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scroll-themed::-webkit-scrollbar-thumb {
+    background-color: var(--color-line-strong);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+/* Honor reduced-motion globally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

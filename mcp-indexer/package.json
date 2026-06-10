@@ -1,0 +1,28 @@
+{
+  "name": "mcp-indexer",
+  "private": true,
+  "type": "module",
+  "description": "A reusable code-intelligence MCP server: index any TypeScript/React repo into a queryable code graph and serve it over HTTP, WebSocket, and MCP.",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "packageManager": "pnpm@8.15.6",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
+    "index": "node tools/code-indexer/build/code-indexer/src/cli.js index",
+    "serve": "pnpm --filter indexer-server start",
+    "index:app": "node tools/code-indexer/build/code-indexer/src/cli.js index --root ../app",
+    "serve:app": "INDEXER_ROOT=../app pnpm --filter indexer-server start"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "eslint": "^9.39.4",
+    "prettier": "^3.5.0",
+    "turbo": "^2.8.20"
+  }
+}

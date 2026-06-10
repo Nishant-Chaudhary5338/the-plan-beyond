@@ -1,0 +1,18 @@
+# My People
+
+> The contacts hub of The Plan Beyond — manage trusted people, trustees, keyholders, and your Beyond Circle in one calm, secure place.
+
+## Overview
+
+My People is the relationship-management surface of a legacy-planning product. Users add contacts, mark trustees and emergency contacts, group people, and control who belongs to their "Beyond Circle" (the people notified as part of their plan).
+
+## Key flows
+
+- Add a contact (name + phone, country-code aware)
+- Search, filter (groups, Beyond Circle, emergency, relationship), and sort contacts
+- Open a contact to edit personal, address, and professional details
+- Import contacts from Google or a VCF file
+
+## Notes
+
+This is a demo build with a mock API. No real personal data is stored.
