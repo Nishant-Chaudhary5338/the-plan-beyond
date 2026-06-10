@@ -1,9 +1,13 @@
 import type { GraphEdge } from '@repo/code-graph-core';
 
+// A node "depends on" what it imports, calls, renders, or type-references — so a
+// change to the target can ripple back to the source. `contains` is structural
+// (tree containment), not a dependency, so it is excluded.
 const DEPENDENCY_TYPES = new Set<GraphEdge['type']>([
   'imports',
   'depends-on',
   'calls',
+  'renders',
   'references',
 ]);
 

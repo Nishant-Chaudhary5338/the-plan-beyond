@@ -26,7 +26,7 @@ export const Breadcrumbs = ({
           >
             {node.name}
           </button>
-          {!isLast && <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />}
+          {!isLast && <ChevronRight className="h-3.5 w-3.5 text-zinc-500" />}
         </span>
       );
     })}

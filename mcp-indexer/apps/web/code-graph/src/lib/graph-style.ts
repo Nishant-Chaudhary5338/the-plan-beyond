@@ -11,12 +11,13 @@ export const TYPE_COLOR: Record<NodeType, string> = {
   function: '#f472b6',
 };
 
-// Health palette — clear, but refined rather than alarm-red.
+// Health palette — distinct hues paired everywhere with text/icons (never color
+// alone). Mirrors the --status-* tokens in index.css.
 export const HEALTH_COLOR: Record<HealthLevel, string> = {
-  ok: '#22c55e',
-  warn: '#eab308',
-  error: '#fb5a6a',
-  unknown: '#64748b',
+  ok: '#34d399',
+  warn: '#fbbf24',
+  error: '#fb7185',
+  unknown: '#94a3b8',
 };
 
 export const EDGE_COLOR: Record<string, string> = {
@@ -28,7 +29,10 @@ export const EDGE_COLOR: Record<string, string> = {
   contains: 'rgba(63,63,70,0.3)',
 };
 
-export const IMPACT_COLOR = '#fb923c';
+// Impact / blast-radius is an *analysis* overlay, not an alarm — magenta keeps
+// it clearly distinct from amber warnings and red errors (and colorblind-safer
+// than three adjacent warm hues). Matches --status-impact.
+export const IMPACT_COLOR = '#e879f9';
 export const SELECTED_COLOR = '#eef2ff';
 export const DIMMED_COLOR = '#2a2b34';
 

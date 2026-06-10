@@ -20,9 +20,9 @@ This repo's sibling [`../app`](../app) — **The Plan Beyond** (a standalone Rea
 ```
 $ pnpm index:app
 Indexed /…/app
-  nodes: 214 (1 repo · 1 app · 112 file · 49 component · 28 function · 23 folder)
-  edges: 361
-  time:  992ms
+  nodes: 261 (1 repo · 1 app · 135 file · 63 component · 36 function · 25 folder)
+  edges: 538 (260 contains · 171 imports · 49 renders · 31 calls · 27 references)
+  time:  ~2.7s
 ```
 
 The indexer is **generic** — it discovers the workspace shape itself and handles **both** monorepos (pnpm / turbo / lerna) **and** standalone single-package repos like The Plan Beyond app. Nothing about the target is hardcoded.
@@ -51,7 +51,7 @@ All three resolve the **same engine** against a target repo root. The examples b
 pnpm serve:app
 #   → 🔭 Indexer server on http://localhost:3002
 #      root: /…/app
-#      ✓ 214 nodes · 361 edges in 1455ms
+#      ✓ 261 nodes · 538 edges in ~2.7s
 #      👀 watching for changes — edit a file to see it update live
 ```
 
@@ -65,7 +65,7 @@ pnpm serve:app
 
 ```bash
 curl localhost:3002/api/graph | jq '.meta'
-# { "root": "/…/app", "nodeCount": 214, "edgeCount": 361, "indexerVersion": "0.1.0" }
+# { "root": "/…/app", "nodeCount": 261, "edgeCount": 538, "indexerVersion": "0.1.0" }
 
 curl localhost:3002/api/node/file:src/App.tsx | jq '.node | {type, metrics, status}'
 # { "type": "file", "metrics": { "loc": 12, "exportsCount": 1 }, "status": { "buildOk": true, "health": "ok" } }
@@ -126,7 +126,7 @@ Either way, a tool call returns:
 
 ```jsonc
 // index_repo  { "root": "/…/app" }
-{ "success": true, "root": "/…/app", "nodeCount": 214, "edgeCount": 361, "durationMs": 992 }
+{ "success": true, "root": "/…/app", "nodeCount": 261, "edgeCount": 538, "durationMs": 2700 }
 ```
 
 > **Path tip:** the MCP entry needs an **absolute** path to `index.js`. For tool args, a relative `root` / `INDEXER_ROOT` (like `../app`) is resolved against the indexer repo root; absolute paths always work.

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Field, Input, Select, DateInput } from '@/components/ui';
 import { SectionCard } from './SectionCard';
 import { OptionalField } from './OptionalField';
@@ -11,6 +12,12 @@ interface PersonalInfoSectionProps {
 const TITLE_OPTIONS = TITLES.map((t) => ({ value: t, label: t }));
 
 export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) {
+  // Only surface the "required" error once the user has touched (and left) the
+  // field — not on a pristine, never-edited contact (A-P1.5).
+  const [firstNameTouched, setFirstNameTouched] = useState(false);
+  const firstNameError =
+    firstNameTouched && !draft.firstName.trim() ? 'First name is required' : undefined;
+
   return (
     <SectionCard title="Personal Information">
       <div className="grid items-start gap-5 sm:grid-cols-2">
@@ -25,16 +32,13 @@ export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) 
             />
           )}
         </OptionalField>
-        <Field
-          label="First name"
-          required
-          error={draft.firstName.trim() ? undefined : 'First name is required'}
-        >
+        <Field label="First name" required error={firstNameError}>
           {(props) => (
             <Input
               {...props}
               value={draft.firstName}
               onChange={(e) => patch({ firstName: e.target.value })}
+              onBlur={() => setFirstNameTouched(true)}
               placeholder="Enter first name"
             />
           )}

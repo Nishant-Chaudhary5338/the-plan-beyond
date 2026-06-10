@@ -25,10 +25,13 @@ type GraphStore = {
   cycleCount: number;
   colorMode: ColorMode;
   showOnboarding: boolean;
+  /** Wall-clock of the last applied live patch, for the "updated Xs ago" pill. */
+  lastUpdatedAt: number | null;
   fitSignal: number;
   load: () => Promise<void>;
   setColorMode: (mode: ColorMode) => void;
   dismissOnboarding: () => void;
+  openOnboarding: () => void;
   recenter: () => void;
   goHome: () => void;
   drillInto: (id: string) => void;
@@ -56,6 +59,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   showOnboarding:
     typeof localStorage !== 'undefined' &&
     localStorage.getItem('cg-onboarded') !== '1',
+  lastUpdatedAt: null,
   fitSignal: 0,
 
   setColorMode: (mode) => set({ colorMode: mode }),
@@ -70,6 +74,9 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     }
     set({ showOnboarding: false });
   },
+  // Re-open the first-run tips on demand (the `?` affordance) without clearing
+  // the persisted "seen" flag — dismissing again simply hides them.
+  openOnboarding: () => set({ showOnboarding: true }),
 
   load: async () => {
     set({ state: 'loading', error: null });
@@ -127,7 +134,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
         existing.knowledge = node.knowledge;
       }
     }
-    set((s) => ({ statusVersion: s.statusVersion + 1 }));
+    set((s) => ({ statusVersion: s.statusVersion + 1, lastUpdatedAt: Date.now() }));
   },
 
   generateKnowledge: async (id) => {

@@ -1,17 +1,23 @@
 import { useState } from 'react';
 import { Check, X, Plus, Star, Trash2 } from 'lucide-react';
-import { Badge, Button, IconButton, Input, InfoPopover, PhoneInput, DEFAULT_PHONE_VALUE, type PhoneValue } from '@/components/ui';
+import { Badge, Button, IconButton, Input, InfoPopover, PhoneInput, Select, DEFAULT_PHONE_VALUE, type PhoneValue } from '@/components/ui';
 import { SectionCard } from './SectionCard';
 import { formatPhoneDisplay, canonicalizePhone } from '@/lib/phone';
 import { isEmail } from '@/lib/validators';
 import type { CountryCode } from 'libphonenumber-js';
-import type { Contact, Phone } from '../../model/types';
+import { PHONE_TYPES, type Contact, type Phone, type PhoneType } from '../../model/types';
+
+const PHONE_TYPE_OPTIONS = PHONE_TYPES.map((t) => ({
+  value: t,
+  label: t.charAt(0).toUpperCase() + t.slice(1),
+}));
 
 interface ContactInfoCardProps {
   draft: Contact;
   addPhone: (phone: Omit<Phone, 'id'>) => void;
   removePhone: (id: string) => void;
   setIdentifier: (id: string) => void;
+  setPhoneType: (id: string, phoneType: string) => void;
   addEmail: (email: string) => void;
   removeEmail: (id: string) => void;
 }
@@ -21,11 +27,18 @@ export function ContactInfoCard({
   addPhone,
   removePhone,
   setIdentifier,
+  setPhoneType,
   addEmail,
   removeEmail,
 }: ContactInfoCardProps) {
   const [phoneDraft, setPhoneDraft] = useState<PhoneValue | null>(null);
+  const [phoneTypeDraft, setPhoneTypeDraft] = useState<PhoneType>('mobile');
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
+
+  const startAddPhone = () => {
+    setPhoneTypeDraft('mobile');
+    setPhoneDraft(DEFAULT_PHONE_VALUE);
+  };
 
   const confirmPhone = () => {
     if (!phoneDraft) return;
@@ -40,6 +53,7 @@ export function ContactInfoCard({
       number: canonical.nationalNumber,
       e164: canonical.e164,
       isIdentifier: draft.phones.length === 0,
+      phoneType: phoneTypeDraft,
     });
     setPhoneDraft(null);
   };
@@ -55,11 +69,15 @@ export function ContactInfoCard({
       <ul className="space-y-3">
         {draft.phones.map((p) => (
           <li key={p.id} className="flex items-center justify-between gap-2">
-            <span className="flex min-w-0 items-baseline gap-2">
+            <span className="flex min-w-0 items-center gap-2">
               <span className="truncate text-sm text-content">{formatPhoneDisplay(p.e164)}</span>
-              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted">
-                {p.phoneType ?? 'mobile'}
-              </span>
+              <Select
+                value={p.phoneType ?? 'mobile'}
+                onValueChange={(v) => setPhoneType(p.id, v)}
+                options={PHONE_TYPE_OPTIONS}
+                aria-label={`Type for ${formatPhoneDisplay(p.e164)}`}
+                className="h-7 w-auto shrink-0 gap-1 px-2 text-[10px] font-medium uppercase tracking-wide text-muted"
+              />
             </span>
             <span className="flex items-center gap-1">
               {p.isIdentifier ? (
@@ -87,19 +105,28 @@ export function ContactInfoCard({
       </ul>
 
       {phoneDraft ? (
-        <div className="mt-3 flex items-center gap-2">
-          <PhoneInput value={phoneDraft} onChange={setPhoneDraft} />
-          <IconButton label="Confirm number" size="sm" variant="solid" onClick={confirmPhone}>
-            <Check className="size-4" />
-          </IconButton>
-          <IconButton label="Cancel" size="sm" onClick={() => setPhoneDraft(null)}>
-            <X className="size-4" />
-          </IconButton>
+        <div className="mt-3 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <PhoneInput value={phoneDraft} onChange={setPhoneDraft} />
+            <IconButton label="Confirm number" size="sm" variant="solid" onClick={confirmPhone}>
+              <Check className="size-4" />
+            </IconButton>
+            <IconButton label="Cancel" size="sm" onClick={() => setPhoneDraft(null)}>
+              <X className="size-4" />
+            </IconButton>
+          </div>
+          <Select
+            value={phoneTypeDraft}
+            onValueChange={(v) => setPhoneTypeDraft(v as PhoneType)}
+            options={PHONE_TYPE_OPTIONS}
+            aria-label="Phone type"
+            className="h-9 w-32 self-start text-xs"
+          />
         </div>
       ) : (
         <button
           type="button"
-          onClick={() => setPhoneDraft(DEFAULT_PHONE_VALUE)}
+          onClick={startAddPhone}
           className="mt-3 flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-content"
         >
           <Plus className="size-4" /> Add number

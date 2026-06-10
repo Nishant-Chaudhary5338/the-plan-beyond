@@ -49,7 +49,7 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
 
   return (
     <section className="panel flex min-h-112 min-w-0 flex-col lg:h-full lg:min-h-0" aria-label="Contacts">
-      <div className="flex flex-col gap-4 p-5">
+      <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-faint">Contacts</h2>
           <div className="relative w-full max-w-xs">
@@ -79,7 +79,7 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
       </div>
 
       {selectedCount > 0 ? (
-        <div className="flex items-center justify-between gap-3 border-t border-line bg-white/3 px-5 py-2.5">
+        <div className="flex items-center justify-between gap-3 border-t border-line bg-white/[0.03] px-4 py-2.5">
           <p className="text-sm text-content" aria-live="polite">
             {selectedCount} selected
           </p>

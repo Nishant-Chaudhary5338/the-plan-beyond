@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Boxes, RefreshCw, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Boxes, RefreshCw, Loader2, Search, FolderOpen } from 'lucide-react';
 import { useGraphStore } from './store/graphStore';
 import { pathToRoot } from './lib/graph-model';
 import { blastRadius } from './lib/analysis';
@@ -9,7 +9,9 @@ import { DetailPanel } from './components/DetailPanel/DetailPanel';
 import { Legend } from './components/Toolbar/Legend';
 import { ModeToggle } from './components/Toolbar/ModeToggle';
 import { ViewControls } from './components/Toolbar/ViewControls';
+import { LiveStatus } from './components/Toolbar/LiveStatus';
 import { ChatPanel } from './components/Chat/ChatPanel';
+import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { OnboardingHint } from './components/Onboarding/OnboardingHint';
 
 export const App = (): React.ReactElement => {
@@ -24,6 +26,7 @@ export const App = (): React.ReactElement => {
     cycleCount,
     colorMode,
     showOnboarding,
+    lastUpdatedAt,
     state,
     error,
     load,
@@ -36,21 +39,36 @@ export const App = (): React.ReactElement => {
     clearImpact,
     setColorMode,
     dismissOnboarding,
+    openOnboarding,
     fitSignal,
     recenter,
     goHome,
   } = useGraphStore();
 
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
   useEffect(() => {
     void load();
   }, [load]);
 
+  // ⌘K / Ctrl-K opens the node search (and the keyboard path into the graph).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   if (state === 'loading' || state === 'idle') {
     return (
       <Centered>
-        <Loader2 className="h-6 w-6 animate-spin text-violet-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
         <p className="mt-3 text-sm text-zinc-300">Indexing your codebase…</p>
-        <p className="mt-1 text-xs text-zinc-600">
+        <p className="mt-1 text-xs text-zinc-400">
           Parsing files, packages and dependencies
         </p>
       </Centered>
@@ -62,16 +80,40 @@ export const App = (): React.ReactElement => {
         <span className="text-sm text-rose-400">
           {error ?? 'No graph available.'}
         </span>
-        <span className="mt-2 text-xs text-zinc-500">
+        <span className="mt-2 text-xs text-zinc-400">
           Start the indexer:{' '}
-          <code className="text-zinc-300">pnpm --filter indexer-server start</code>
+          <code className="font-mono text-zinc-200">
+            pnpm --filter indexer-server start
+          </code>
         </span>
         <button
           type="button"
           onClick={() => void load()}
-          className="mt-4 rounded-lg bg-violet-500/20 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-violet-500/30"
+          className="mt-4 rounded-lg bg-accent/20 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-accent/30"
         >
           Retry
+        </button>
+      </Centered>
+    );
+  }
+
+  // A repo with nothing to show (empty / single-node graph) shouldn't read as a
+  // stuck spinner — say so plainly, with the same Retry affordance.
+  if ((snapshot?.meta.nodeCount ?? 0) <= 1) {
+    return (
+      <Centered>
+        <FolderOpen className="h-6 w-6 text-zinc-400" aria-hidden="true" />
+        <p className="mt-3 text-sm text-zinc-300">Nothing to graph yet</p>
+        <p className="mt-1 max-w-xs text-center text-xs text-zinc-400">
+          The indexer found no source files. Point it at a TypeScript/React repo,
+          then re-index.
+        </p>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="mt-4 rounded-lg bg-accent/20 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-accent/30"
+        >
+          Reload
         </button>
       </Centered>
     );
@@ -86,18 +128,42 @@ export const App = (): React.ReactElement => {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-white/[0.06] bg-[#0a0b12]/60 px-5 py-3 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <Boxes className="h-5 w-5 text-violet-400" />
+        <div className="flex min-w-0 items-center gap-3">
+          {/* Wordmark lockup — gives the tool an identity, not just an icon. */}
+          <span className="flex shrink-0 items-center gap-2">
+            <Boxes className="h-5 w-5 text-accent" />
+            <span className="hidden text-sm font-semibold tracking-tight text-zinc-100 sm:inline">
+              Code Graph
+            </span>
+          </span>
+          <span className="h-4 w-px shrink-0 bg-white/10" aria-hidden="true" />
           <Breadcrumbs path={breadcrumbPath} onNavigate={drillTo} />
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <LiveStatus lastUpdatedAt={lastUpdatedAt} />
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Find a node"
+            className="flex items-center gap-1.5 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/[0.08] hover:text-zinc-100"
+          >
+            <Search className="h-3.5 w-3.5" />
+            Find
+            <kbd className="ml-0.5 rounded bg-white/[0.06] px-1 py-0.5 text-[10px] text-zinc-400">
+              ⌘K
+            </kbd>
+          </button>
           {cycleCount > 0 && (
-            <span className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300/90">
+            <span className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300">
               <RefreshCw className="h-3 w-3" />
               {cycleCount} cycles
             </span>
           )}
-          <Legend mode={colorMode} />
+          {/* Hide the swatch legend on narrow viewports so the header never
+              wraps; the mode toggle + detail panel remain the source of truth. */}
+          <div className="hidden max-w-[40vw] xl:flex">
+            <Legend mode={colorMode} />
+          </div>
           <ModeToggle mode={colorMode} onChange={setColorMode} />
         </div>
       </header>
@@ -116,14 +182,36 @@ export const App = (): React.ReactElement => {
             onSelect={select}
           />
           <div className="graph-vignette" />
-          <ViewControls onHome={goHome} onRecenter={recenter} />
+          <ViewControls
+            onHome={goHome}
+            onRecenter={recenter}
+            onHelp={openOnboarding}
+          />
           {showOnboarding && (
             <OnboardingHint
               nodeCount={snapshot?.meta.nodeCount ?? 0}
               onDismiss={dismissOnboarding}
             />
           )}
-          <ChatPanel onCite={focusOn} />
+          <ChatPanel
+            onCite={focusOn}
+            resolveCitation={(id) => {
+              const n = index.nodeById.get(id);
+              return n ? { name: n.name, type: n.type } : null;
+            }}
+          />
+          {paletteOpen && (
+            <CommandPalette
+              nodes={snapshot?.nodes ?? []}
+              onClose={() => setPaletteOpen(false)}
+              onPick={(id) => {
+                const hasChildren =
+                  (index.childrenOf.get(id)?.length ?? 0) > 0;
+                if (hasChildren) drillInto(id);
+                else focusOn(id);
+              }}
+            />
+          )}
         </main>
         {selectedNode && (
           <DetailPanel

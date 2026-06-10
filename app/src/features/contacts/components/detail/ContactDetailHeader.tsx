@@ -1,21 +1,54 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Send, Trash2, MoreHorizontal } from 'lucide-react';
-import { Avatar, Badge, Button, IconButton, Popover, toast } from '@/components/ui';
+import { Badge, Button, IconButton, Popover, toast } from '@/components/ui';
 import { formatPhoneDisplay } from '@/lib/phone';
 import { formatDate } from '@/lib/format';
 import { displayName } from '../../utils/filterContacts';
+import { AvatarUpload } from './AvatarUpload';
 import type { Contact } from '../../model/types';
 
 interface ContactDetailHeaderProps {
   contact: Contact;
   onDelete: () => void;
+  onAvatarChange: (url: string | null) => void;
 }
 
-export function ContactDetailHeader({ contact, onDelete }: ContactDetailHeaderProps) {
+/**
+ * Maps the server-owned invite standing to a standing chip + subline clause.
+ * Returns `null` when the status is unknown so the header asserts nothing —
+ * the fix for the previously hard-coded "· Not yet invited" (A-P0.1).
+ */
+function inviteDisplay(
+  invite: Contact['invite'],
+): { chip: string; chipVariant: 'accent' | 'outline'; subline: string } | null {
+  if (!invite) return null;
+  switch (invite.status) {
+    case 'joined':
+      return {
+        chip: 'Joined',
+        chipVariant: 'accent',
+        subline: invite.joinedAt ? `Joined ${formatDate(invite.joinedAt)}` : 'Joined',
+      };
+    case 'invited':
+      return {
+        chip: 'Invited',
+        chipVariant: 'outline',
+        subline: invite.invitedAt ? `Invited ${formatDate(invite.invitedAt)}` : 'Invited',
+      };
+    case 'not_invited':
+      return { chip: 'Not yet invited', chipVariant: 'outline', subline: 'Not yet invited' };
+    default:
+      return null;
+  }
+}
+
+export function ContactDetailHeader({ contact, onDelete, onAvatarChange }: ContactDetailHeaderProps) {
   const name = displayName(contact) || 'New contact';
   const primary = contact.phones.find((p) => p.isIdentifier) ?? contact.phones[0];
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const invite = inviteDisplay(contact.invite);
 
   // Read-only standing chips (B1) — editing stays in the Roles card. Unset roles
   // are simply omitted.
@@ -23,7 +56,8 @@ export function ContactDetailHeader({ contact, onDelete }: ContactDetailHeaderPr
     Boolean(contact.relationship) ||
     contact.groups.length > 0 ||
     contact.isEmergencyContact ||
-    contact.isBeyondCircle;
+    contact.isBeyondCircle ||
+    invite !== null;
 
   return (
     <div>
@@ -36,7 +70,7 @@ export function ContactDetailHeader({ contact, onDelete }: ContactDetailHeaderPr
 
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
-          <Avatar name={name} imageUrl={contact.avatarUrl} size="lg" />
+          <AvatarUpload name={name} imageUrl={contact.avatarUrl} onChange={onAvatarChange} />
           <div className="min-w-0">
             <h1 className="text-3xl sm:text-4xl">{name}</h1>
 
@@ -48,13 +82,14 @@ export function ContactDetailHeader({ contact, onDelete }: ContactDetailHeaderPr
                 ))}
                 {contact.isEmergencyContact ? <Badge variant="warning">Emergency contact</Badge> : null}
                 {contact.isBeyondCircle ? <Badge variant="accent">In your Beyond Circle</Badge> : null}
+                {invite ? <Badge variant={invite.chipVariant}>{invite.chip}</Badge> : null}
               </div>
             ) : null}
 
             <p className="mt-2 text-sm text-faint">
               {primary ? formatPhoneDisplay(primary.e164) : 'No number'}
               {contact.createdAt ? ` · Added ${formatDate(contact.createdAt)}` : ''}
-              {' · Not yet invited'}
+              {invite ? ` · ${invite.subline}` : ''}
             </p>
           </div>
         </div>

@@ -10,6 +10,7 @@ import { ContactDetailHeader } from '../components/detail/ContactDetailHeader';
 import { ContactInfoCard } from '../components/detail/ContactInfoCard';
 import { RolesSettingsSection } from '../components/detail/RolesSettingsSection';
 import { NotesSection } from '../components/detail/NotesSection';
+import { HistorySection } from '../components/detail/HistorySection';
 import { PersonalInfoSection } from '../components/detail/PersonalInfoSection';
 import { AddressSection } from '../components/detail/AddressSection';
 import { ProfessionalSection } from '../components/detail/ProfessionalSection';
@@ -79,7 +80,11 @@ export default function ContactDetailPage() {
 
   return (
     <div className="mx-auto max-w-7xl py-8 pb-28">
-      <ContactDetailHeader contact={draft} onDelete={() => setConfirmOpen(true)} />
+      <ContactDetailHeader
+        contact={draft}
+        onDelete={() => setConfirmOpen(true)}
+        onAvatarChange={(url) => draftApi.patch({ avatarUrl: url })}
+      />
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[360px_1fr]">
         <div className="flex flex-col gap-6">
@@ -88,11 +93,13 @@ export default function ContactDetailPage() {
             addPhone={draftApi.addPhone}
             removePhone={draftApi.removePhone}
             setIdentifier={draftApi.setIdentifier}
+            setPhoneType={draftApi.setPhoneType}
             addEmail={draftApi.addEmail}
             removeEmail={draftApi.removeEmail}
           />
           <RolesSettingsSection draft={draft} patch={draftApi.patch} />
           <NotesSection draft={draft} patch={draftApi.patch} />
+          <HistorySection contact={draft} />
         </div>
         <div className="flex flex-col gap-6">
           <PersonalInfoSection draft={draft} patch={draftApi.patch} />

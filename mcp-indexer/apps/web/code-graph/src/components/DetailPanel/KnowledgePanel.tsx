@@ -29,7 +29,7 @@ export const KnowledgePanel = ({
         <p className="text-sm leading-relaxed text-zinc-300">
           {knowledge.summary}
         </p>
-        <p className="mt-2 text-[11px] uppercase tracking-wide text-zinc-600">
+        <p className="mt-2 text-[11px] uppercase tracking-wide text-zinc-400">
           {knowledge.model}
         </p>
       </div>
@@ -38,7 +38,7 @@ export const KnowledgePanel = ({
 
   return (
     <div>
-      <p className="mb-2 text-sm text-zinc-500">
+      <p className="mb-2 text-sm text-zinc-400">
         No summary yet for this node.
       </p>
       {canGenerate && (

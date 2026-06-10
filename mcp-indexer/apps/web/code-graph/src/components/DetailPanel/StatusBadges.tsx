@@ -1,7 +1,22 @@
-import type { NodeStatus } from '@repo/code-graph-core';
+import {
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  CircleHelp,
+  type LucideIcon,
+} from 'lucide-react';
+import type { NodeStatus, HealthLevel } from '@repo/code-graph-core';
 import { HEALTH_COLOR } from '../../lib/graph-style';
 
 type StatusBadgesProps = { status: NodeStatus };
+
+// Pair every health level with an icon + label, never color alone (WCAG 1.4.1).
+const HEALTH_ICON: Record<HealthLevel, LucideIcon> = {
+  ok: CheckCircle2,
+  warn: AlertTriangle,
+  error: XCircle,
+  unknown: CircleHelp,
+};
 
 type Badge = { label: string; tone: 'ok' | 'warn' | 'error' | 'muted' };
 
@@ -47,13 +62,15 @@ export const StatusBadges = ({
 }: StatusBadgesProps): React.ReactElement => {
   const health = status.health;
   const badges = buildBadges(status);
+  const HealthIcon = HEALTH_ICON[health];
 
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2">
-        <span
-          className="h-2 w-2 rounded-full"
-          style={{ backgroundColor: HEALTH_COLOR[health] }}
+      <div className="mb-2 flex items-center gap-1.5">
+        <HealthIcon
+          className="h-3.5 w-3.5"
+          style={{ color: HEALTH_COLOR[health] }}
+          aria-hidden="true"
         />
         <span className="text-sm capitalize text-zinc-300">{health}</span>
       </div>

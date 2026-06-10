@@ -101,3 +101,12 @@ export const TYPE_LABEL: Record<NodeType, string> = {
   component: 'Component',
   function: 'Function',
 };
+
+export const EDGE_LABEL: Record<GraphEdge['type'], string> = {
+  contains: 'Contains',
+  imports: 'Imports',
+  'depends-on': 'Depends on',
+  calls: 'Calls',
+  renders: 'Renders',
+  references: 'References',
+};

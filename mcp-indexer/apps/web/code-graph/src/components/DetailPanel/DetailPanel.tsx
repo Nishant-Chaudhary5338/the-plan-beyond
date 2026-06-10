@@ -22,13 +22,19 @@ const KNOWLEDGE_TYPES = new Set(['file', 'component', 'function']);
 const Row = ({
   label,
   value,
+  mono,
 }: {
   label: string;
   value: string;
+  mono?: boolean;
 }): React.ReactElement => (
   <div className="flex justify-between gap-4 py-1 text-sm">
-    <span className="text-zinc-500">{label}</span>
-    <span className="truncate text-right text-zinc-200">{value}</span>
+    <span className="text-zinc-400">{label}</span>
+    <span
+      className={`truncate text-right text-zinc-200${mono ? ' font-mono text-[13px]' : ''}`}
+    >
+      {value}
+    </span>
   </div>
 );
 
@@ -49,7 +55,7 @@ export const DetailPanel = ({
           className="h-2.5 w-2.5 rounded-full"
           style={{ backgroundColor: TYPE_COLOR[node.type] }}
         />
-        <h2 className="truncate text-sm font-semibold text-zinc-100">
+        <h2 className="truncate font-mono text-sm font-semibold text-zinc-100">
           {node.name}
         </h2>
       </div>
@@ -65,7 +71,7 @@ export const DetailPanel = ({
     <div className="flex-1 overflow-y-auto px-4 py-3">
       <section className="mb-4">
         <Row label="Type" value={TYPE_LABEL[node.type]} />
-        {nodePath(node) && <Row label="Path" value={nodePath(node)!} />}
+        {nodePath(node) && <Row label="Path" value={nodePath(node)!} mono />}
         {hasMetrics(node) && <Row label="Lines" value={String(node.metrics.loc)} />}
         {childCount > 0 && <Row label="Children" value={String(childCount)} />}
         {hasMetrics(node) && node.metrics.exportsCount > 0 && (
@@ -74,7 +80,7 @@ export const DetailPanel = ({
       </section>
 
       <section className="mb-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
           Status
         </h3>
         <StatusBadges status={node.status} />
@@ -82,7 +88,7 @@ export const DetailPanel = ({
 
       {impactCount > 0 && (
         <section className="mb-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
             Impact
           </h3>
           <button
@@ -90,8 +96,8 @@ export const DetailPanel = ({
             onClick={onToggleImpact}
             className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs transition-colors ${
               impactActive
-                ? 'bg-orange-500/25 text-orange-200'
-                : 'bg-orange-500/15 text-orange-300 hover:bg-orange-500/25'
+                ? 'bg-fuchsia-500/25 text-fuchsia-100'
+                : 'bg-fuchsia-500/15 text-fuchsia-300 hover:bg-fuchsia-500/25'
             }`}
           >
             <Zap className="h-3.5 w-3.5" />
@@ -103,7 +109,7 @@ export const DetailPanel = ({
       )}
 
       <section>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
           Knowledge
         </h3>
         <KnowledgePanel

@@ -53,6 +53,12 @@ export const wireContactSchema = z
     share_after_death: z.boolean().default(false),
     profile_image_url: z.string().nullable().default(null),
     notes: z.string().nullable().default(null),
+    // Product-invite standing (server-owned). Optional: a backend that doesn't
+    // yet send these leaves the internal `invite` field absent, so the UI omits
+    // any invite claim rather than fabricating one.
+    invite_status: z.enum(['not_invited', 'invited', 'joined']).nullable().optional(),
+    invited_at: z.string().nullable().optional(),
+    joined_at: z.string().nullable().optional(),
     email_list: z.array(wireEmailSchema).default([]),
     phone_list: z.array(wirePhoneSchema).default([]),
     created_at: z.string().default(''),
@@ -83,6 +89,13 @@ export function fromWireContact(w: WireContact): Contact {
   const title = TITLES.find((t) => t === w.title);
   // Single-relationship by product decision (the detail form is single-select).
   const relationship = w.relationships[0];
+  const invite = w.invite_status
+    ? {
+        status: w.invite_status,
+        ...(w.invited_at ? { invitedAt: w.invited_at } : {}),
+        ...(w.joined_at ? { joinedAt: w.joined_at } : {}),
+      }
+    : undefined;
   return {
     id: w.id,
     ...(title ? { title } : {}),
@@ -111,6 +124,7 @@ export function fromWireContact(w: WireContact): Contact {
     isEmergencyContact: w.is_emergency_contact,
     isBeyondCircle: w.share_after_death,
     avatarUrl: w.profile_image_url ?? null,
+    ...(invite ? { invite } : {}),
     ...(w.date_of_birth ? { dateOfBirth: w.date_of_birth } : {}),
     ...(w.anniversary ? { anniversary: w.anniversary } : {}),
     createdAt: w.created_at,

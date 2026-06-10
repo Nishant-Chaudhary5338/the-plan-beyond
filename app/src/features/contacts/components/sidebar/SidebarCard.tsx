@@ -13,8 +13,8 @@ interface SidebarCardProps {
 /** Shared frame for the People sidebar stat cards. */
 export function SidebarCard({ title, action, info, children, className }: SidebarCardProps) {
   return (
-    <section className={cn('panel p-4', className)}>
-      <div className="mb-3 flex items-center justify-between">
+    <section className={cn('panel p-3.5', className)}>
+      <div className="mb-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-faint">{title}</h2>
           {info}

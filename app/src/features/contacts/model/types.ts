@@ -19,6 +19,10 @@ export const RELATIONSHIPS = [
 /** Group / segment options for the multi-select. */
 export const GROUPS = ['Family', 'Friends', 'Work', 'Legal', 'Medical', 'Financial'] as const;
 
+/** Phone-type options offered when adding/editing a number. Stored lowercase. */
+export const PHONE_TYPES = ['mobile', 'home', 'work', 'other'] as const;
+export type PhoneType = (typeof PHONE_TYPES)[number];
+
 export const phoneSchema = z.object({
   id: z.string(),
   /** Dial code incl. leading "+", e.g. "+91". */
@@ -76,6 +80,18 @@ export const contactSchema = z.object({
   isEmergencyContact: z.boolean().default(false),
   isBeyondCircle: z.boolean().default(false),
   avatarUrl: z.string().nullable().optional(),
+  /**
+   * Product-invite standing, server-owned. Absent until the backend reports it —
+   * the UI must say nothing about invites rather than assert a default, so a
+   * placeholder can never calcify into a lie once invites ship.
+   */
+  invite: z
+    .object({
+      status: z.enum(['not_invited', 'invited', 'joined']),
+      invitedAt: z.string().optional(),
+      joinedAt: z.string().optional(),
+    })
+    .optional(),
   createdAt: z.string(),
 });
 

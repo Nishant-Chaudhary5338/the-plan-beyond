@@ -8,7 +8,7 @@ export function PeopleSidebar() {
   const { trustees, keyholders, notify_circle, contacts } = useContactsStats();
   return (
     <aside
-      className="scroll-themed flex flex-col gap-5 lg:h-full lg:min-h-0 lg:gap-4 lg:overflow-y-auto"
+      className="flex flex-col gap-4 lg:h-full lg:justify-between lg:gap-3"
       aria-label="People overview"
     >
       <TrusteesCard trustees={trustees} />

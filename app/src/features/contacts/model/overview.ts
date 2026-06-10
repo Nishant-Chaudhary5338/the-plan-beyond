@@ -46,3 +46,39 @@ export const trusteeInviteSchema = z.object({
 
 export type PeopleOverview = z.infer<typeof peopleOverviewSchema>;
 export type TrusteeInvite = z.infer<typeof trusteeInviteSchema>;
+
+export interface ReadinessStep {
+  label: string;
+  done: boolean;
+}
+
+export interface PlanReadiness {
+  /** 0–100, rounded. */
+  pct: number;
+  steps: ReadinessStep[];
+  complete: boolean;
+  /** The first not-yet-done step, if any — the gentle nudge to surface. */
+  nextStep: ReadinessStep | null;
+}
+
+/**
+ * Honest plan-readiness derived only from real `/people` signals — no invented
+ * metric. Three concrete steps a person can actually complete and verify (A-P2.8).
+ */
+export function planReadiness(o: PeopleOverview): PlanReadiness {
+  const steps: ReadinessStep[] = [
+    { label: 'Add the people who matter', done: o.contacts.total > 0 },
+    { label: 'Name a trustee to act for you', done: o.trustees.active_count > 0 },
+    {
+      label: 'Set up your Beyond Circle',
+      done: o.notify_circle.total_recipients > 0 || o.keyholders.accepted_count > 0,
+    },
+  ];
+  const done = steps.filter((s) => s.done).length;
+  return {
+    pct: Math.round((done / steps.length) * 100),
+    steps,
+    complete: done === steps.length,
+    nextStep: steps.find((s) => !s.done) ?? null,
+  };
+}

@@ -59,6 +59,12 @@ export function useContactDraft(id: string) {
     );
   }, []);
 
+  const setPhoneType = useCallback((phoneId: string, phoneType: string) => {
+    setDraft((d) =>
+      d ? { ...d, phones: d.phones.map((p) => (p.id === phoneId ? { ...p, phoneType } : p)) } : d
+    );
+  }, []);
+
   const addEmail = useCallback((email: string) => {
     setDraft((d) => (d ? { ...d, emails: [...d.emails, { id: uid(), email }] } : d));
   }, []);
@@ -90,6 +96,7 @@ export function useContactDraft(id: string) {
     addPhone,
     removePhone,
     setIdentifier,
+    setPhoneType,
     addEmail,
     removeEmail,
     discard,

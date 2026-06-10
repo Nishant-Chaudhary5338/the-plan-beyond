@@ -1,5 +1,33 @@
 @import 'tailwindcss';
 
+/* Design tokens. One accent + one mono face, registered with Tailwind v4 so
+   `text-accent`/`bg-accent`/`font-mono` resolve. Code identifiers (node names,
+   paths, citations, commands) render in the mono face — a dev tool should look
+   like one. */
+@theme {
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Menlo', monospace;
+  --color-accent: #a78bfa;
+}
+
+/* Surface / line / text ramp + status hues as CSS vars. The neutral ramp is
+   tuned so anything meaningful clears WCAG AA on the #080a12 canvas; warm-status
+   hues are kept distinct (impact is magenta, not orange, so "blast radius" reads
+   as analysis, not alarm — and doesn't collide with amber warnings / red errors). */
+:root {
+  --surface: rgba(10, 11, 18, 0.6);
+  --surface-raised: rgba(10, 11, 18, 0.72);
+  --line: rgba(255, 255, 255, 0.06);
+  --line-strong: rgba(255, 255, 255, 0.1);
+  --text: #e4e4e7; /* zinc-200 */
+  --text-muted: #a1a1aa; /* zinc-400 — floor for meaningful secondary text */
+  --text-faint: #8a8a93; /* between zinc-400/500 — decorative only */
+  --accent-glow: 0 0 24px -6px rgba(139, 92, 246, 0.55);
+  --status-ok: #34d399;
+  --status-warn: #fbbf24;
+  --status-error: #fb7185;
+  --status-impact: #e879f9; /* magenta — analysis, not alarm */
+}
+
 html,
 body,
 #root {
@@ -84,4 +112,21 @@ button:not(:disabled):active {
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
     0 8px 30px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* Honor the OS "reduce motion" setting (WCAG 2.3.3): strip the press-scale,
+   panel/rise entrances, and link-particle-ish transitions down to instant.
+   Mirrors the sibling app's guard. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  button:not(:disabled):active {
+    transform: none;
+  }
 }

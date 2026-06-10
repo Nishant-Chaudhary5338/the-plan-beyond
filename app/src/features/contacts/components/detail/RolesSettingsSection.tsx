@@ -79,11 +79,20 @@ export function RolesSettingsSection({ draft, patch }: RolesSettingsSectionProps
     patch({ groups: next });
   };
 
+  // Summarise from the *actual* active roles, not just group count — a contact
+  // can be an emergency contact or in the Beyond Circle with zero groups and
+  // still has roles assigned (A-P0.2).
+  const summaryParts = [
+    draft.isEmergencyContact ? 'Emergency contact' : null,
+    draft.isBeyondCircle ? 'In your Beyond Circle' : null,
+    draft.relationship || null,
+    ...draft.groups,
+  ].filter((p): p is string => Boolean(p));
+  const summary = summaryParts.length ? summaryParts.join(' · ') : 'No roles assigned yet';
+
   return (
     <SectionCard title="Roles & Settings">
-      <p className="-mt-3 mb-4 text-sm text-faint">
-        {draft.groups.length ? `${draft.groups.length} group(s)` : 'No roles assigned'}
-      </p>
+      <p className="-mt-3 mb-4 text-sm text-faint">{summary}</p>
 
       <div className="space-y-1">
         <RoleToggle

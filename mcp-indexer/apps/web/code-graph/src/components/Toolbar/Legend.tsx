@@ -1,7 +1,7 @@
-import type { NodeType, HealthLevel } from '@repo/code-graph-core';
+import type { NodeType, HealthLevel, GraphEdge } from '@repo/code-graph-core';
 import type { ColorMode } from '../../store/graphStore';
-import { TYPE_COLOR, HEALTH_COLOR } from '../../lib/graph-style';
-import { TYPE_LABEL } from '../../lib/graph-model';
+import { TYPE_COLOR, HEALTH_COLOR, EDGE_COLOR } from '../../lib/graph-style';
+import { TYPE_LABEL, EDGE_LABEL } from '../../lib/graph-model';
 
 type LegendProps = { mode: ColorMode };
 
@@ -18,6 +18,15 @@ const HEALTH_ITEMS: { level: HealthLevel; label: string }[] = [
   { level: 'warn', label: 'Warnings' },
   { level: 'error', label: 'Type errors' },
   { level: 'unknown', label: 'Not analyzed' },
+];
+// Relationship edges worth explaining (the structural `contains` edge is implied
+// by the drill-down tree, so it is omitted here).
+const EDGE_ORDER: GraphEdge['type'][] = [
+  'imports',
+  'renders',
+  'calls',
+  'references',
+  'depends-on',
 ];
 
 const Swatch = ({
@@ -36,8 +45,22 @@ const Swatch = ({
   </span>
 );
 
+// A short line glyph (rather than a dot) to read as a relationship/edge.
+const EdgeSwatch = ({
+  color,
+  label,
+}: {
+  color: string;
+  label: string;
+}): React.ReactElement => (
+  <span className="flex items-center gap-1.5">
+    <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: color }} />
+    {label}
+  </span>
+);
+
 export const Legend = ({ mode }: LegendProps): React.ReactElement => (
-  <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
+  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-zinc-400">
     {mode === 'type'
       ? TYPE_ORDER.map((type) => (
           <Swatch key={type} color={TYPE_COLOR[type]} label={TYPE_LABEL[type]} />
@@ -49,5 +72,13 @@ export const Legend = ({ mode }: LegendProps): React.ReactElement => (
             label={item.label}
           />
         ))}
+    <span className="mx-0.5 h-3 w-px bg-zinc-700" aria-hidden />
+    {EDGE_ORDER.map((type) => (
+      <EdgeSwatch
+        key={type}
+        color={EDGE_COLOR[type] ?? '#52525b'}
+        label={EDGE_LABEL[type]}
+      />
+    ))}
   </div>
 );

@@ -190,4 +190,51 @@ describe('reparseFiles (live edit)', () => {
     expect(snap.nodes.some((n) => n.id === 'fn:src/b.ts#mul')).toBe(false);
     expect(snap.nodes.some((n) => n.id === 'fn:src/b.ts#div')).toBe(true);
   });
+
+  it('re-resolves importers so symbol edges into a changed file never dangle', () => {
+    // Header exports two components; App imports and renders both.
+    write(
+      'src/Header.tsx',
+      `export const Header = () => <h1/>;\nexport const Footer = () => <footer/>;\n`,
+    );
+    write(
+      'src/App.tsx',
+      `import { Header, Footer } from './Header';\n` +
+        `export const App = () => <div><Header/><Footer/></div>;\n`,
+    );
+    const session = new IndexerSession(root);
+    session.indexFull();
+
+    const appRenderTargets = (): string[] =>
+      session
+        .getSnapshot()!
+        .edges.filter(
+          (e) => e.type === 'renders' && e.source === 'cmp:src/App.tsx#App',
+        )
+        .map((e) => e.target)
+        .sort();
+
+    // Both renders edges resolve cross-file on the full index.
+    expect(appRenderTargets()).toEqual([
+      'cmp:src/Header.tsx#Footer',
+      'cmp:src/Header.tsx#Header',
+    ]);
+
+    // Remove the Header export (keep Footer), then reparse ONLY Header.tsx.
+    write('src/Header.tsx', `export const Footer = () => <footer/>;\n`);
+    session.reparseFiles([path.join(root, 'src/Header.tsx')]);
+    const snap = session.getSnapshot()!;
+
+    // App was re-resolved as an importer: its edge to the now-gone Header
+    // component is dropped rather than left pointing at a removed node.
+    const ids = new Set(snap.nodes.map((n) => n.id));
+    const dangling = snap.edges.filter(
+      (e) => !ids.has(e.source) || !ids.has(e.target),
+    );
+    expect(dangling).toEqual([]);
+    expect(snap.nodes.some((n) => n.id === 'cmp:src/Header.tsx#Header')).toBe(
+      false,
+    );
+    expect(appRenderTargets()).toEqual(['cmp:src/Header.tsx#Footer']);
+  });
 });
