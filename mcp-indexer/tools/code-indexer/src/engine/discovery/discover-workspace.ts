@@ -47,7 +47,7 @@ const readWorkspacePatterns = (root: string): string[] => {
   if (fs.existsSync(file)) {
     const content = fs.readFileSync(file, 'utf-8');
     const match = content.match(/packages:\s*\n((?:\s+-\s+.+\n?)+)/);
-    if (match) {
+    if (match?.[1]) {
       return match[1]
         .split('\n')
         .filter((l) => l.trim().startsWith('-'))

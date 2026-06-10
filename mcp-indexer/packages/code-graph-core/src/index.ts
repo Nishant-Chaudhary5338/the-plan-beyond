@@ -3,6 +3,17 @@ export {
   SourceSpan,
   NodeMetrics,
   GraphNode,
+  RepoNode,
+  AppNode,
+  PackageNode,
+  FolderNode,
+  FileNode,
+  ComponentNode,
+  FunctionNode,
+  hasSpan,
+  hasPath,
+  hasMetrics,
+  nodePath,
 } from './node.schema';
 export { EdgeType, GraphEdge } from './edge.schema';
 export {

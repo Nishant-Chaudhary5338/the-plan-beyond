@@ -17,11 +17,25 @@ export const fileId = (relPath: string): string =>
 export const componentId = (relPath: string, exportName: string): string =>
   `cmp:${normalizePath(relPath)}#${exportName}`;
 
+/**
+ * Canonical id for a function/symbol node.
+ *
+ * The id must be STABLE across trivial edits (adding a blank line above a
+ * function must not change its id), so it never embeds an absolute line number.
+ * Names are usually unique within a file; when they are not (overloads, two
+ * arrow functions assigned to the same name in different scopes), the caller
+ * passes a 0-based `occurrence` index — the n-th declaration of that name in
+ * source order — which only changes if a same-named sibling is added/removed,
+ * not on whitespace churn.
+ */
 export const functionId = (
   relPath: string,
   symbol: string,
-  startLine: number,
-): string => `fn:${normalizePath(relPath)}#${symbol}@${startLine}`;
+  occurrence = 0,
+): string =>
+  occurrence === 0
+    ? `fn:${normalizePath(relPath)}#${symbol}`
+    : `fn:${normalizePath(relPath)}#${symbol}~${occurrence}`;
 
 export const edgeId = (
   source: string,

@@ -12,7 +12,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"**/*.ts\""
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"

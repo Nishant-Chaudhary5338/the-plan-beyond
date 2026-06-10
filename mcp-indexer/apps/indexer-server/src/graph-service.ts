@@ -1,37 +1,80 @@
 import { IndexerSession } from 'code-indexer-mcp/engine';
 import { writeSnapshot } from 'code-indexer-mcp/cache';
 import { readNodeSource, describeNode } from 'code-indexer-mcp/knowledge';
-import type {
-  GraphSnapshot,
-  GraphNode,
-  GraphPatch,
-  NodeKnowledge,
+import {
+  nodePath,
+  type GraphSnapshot,
+  type GraphNode,
+  type GraphPatch,
+  type NodeKnowledge,
 } from '@repo/code-graph-core';
 import { askClaude } from './claude-cli.js';
 import { summaryPrompt, chatPrompt } from './prompts.js';
+import { Semaphore } from './semaphore.js';
 
 export type ChatResult = { answer: string; citations: string[]; usedLlm: boolean };
 
 const RETRIEVABLE = new Set(['file', 'component', 'function']);
 const MAX_CONTEXT_NODES = 6;
 const CONTEXT_CHARS = 1500;
+/** Cap on simultaneous Claude CLI subprocesses spawned by chat requests. */
+const MAX_CONCURRENT_LLM = 2;
 
 export type PatchListener = (patch: GraphPatch) => void;
+
+const emptyPatch = (): GraphPatch => ({
+  upsertNodes: [],
+  removeNodeIds: [],
+  upsertEdges: [],
+  removeEdgeIds: [],
+  meta: {},
+});
 
 export class GraphService {
   private readonly session: IndexerSession;
   private snapshot: GraphSnapshot | null = null;
   private readonly listeners = new Set<PatchListener>();
+  /**
+   * Serialization queue. Every operation that mutates shared session state
+   * (the live ts-morph project + the in-memory snapshot) is chained onto this
+   * promise so that reindex, watcher reparse/enrichment, and progressive status
+   * enrichment can never interleave. Without this, a reindex could run while the
+   * watcher is mid-reparse, producing torn reads of `snapshot` over /api/graph.
+   */
+  private queue: Promise<unknown> = Promise.resolve();
+  /** Bounds the number of concurrent Claude CLI subprocesses. */
+  private readonly llmSlots = new Semaphore(MAX_CONCURRENT_LLM);
 
   constructor(root: string) {
     this.session = new IndexerSession(root);
   }
 
-  indexFull(): GraphSnapshot {
-    const snapshot = this.session.indexFull();
-    this.snapshot = snapshot;
-    writeSnapshot(snapshot.meta.root, snapshot);
-    return snapshot;
+  /**
+   * Run `fn` exclusively with respect to all other serialized operations. The
+   * queue chains regardless of whether prior tasks resolved or rejected, so one
+   * failing mutation never wedges the queue.
+   */
+  serialize<T>(fn: () => T | Promise<T>): Promise<T> {
+    const run = this.queue.then(fn, fn);
+    // Keep the chain alive even if `fn` throws; swallow here, surface to caller.
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  /** Full, from-scratch index. Serialized against all other mutations. */
+  indexFull(): Promise<GraphSnapshot> {
+    return this.serialize(() => {
+      const snapshot = this.session.indexFull();
+      // Atomic swap: only publish the fully-built snapshot once the engine has
+      // finished constructing it, so concurrent /api/graph reads never observe a
+      // half-populated graph.
+      this.snapshot = snapshot;
+      writeSnapshot(snapshot.meta.root, snapshot);
+      return snapshot;
+    });
   }
 
   getSnapshot(): GraphSnapshot | null {
@@ -56,22 +99,40 @@ export class GraphService {
   }
 
   private upsertPatch(nodes: GraphNode[]): GraphPatch {
-    return {
-      upsertNodes: nodes,
-      removeNodeIds: [],
-      upsertEdges: [],
-      removeEdgeIds: [],
-      meta: {},
-    };
+    return { ...emptyPatch(), upsertNodes: nodes };
   }
 
   async enrichStatusProgressive(): Promise<void> {
-    for (const pkg of this.session.getPackages()) {
-      const changed = this.session.enrichPackageStatus(pkg);
-      if (changed.length > 0) this.emitPatch(this.upsertPatch(changed));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-    if (this.snapshot) writeSnapshot(this.snapshot.meta.root, this.snapshot);
+    // Enrichment walks packages and yields between each, so it must be
+    // serialized as a single unit to avoid interleaving with a reparse/reindex
+    // that would mutate the same snapshot mid-walk.
+    await this.serialize(async () => {
+      for (const pkg of this.session.getPackages()) {
+        const changed = this.session.enrichPackageStatus(pkg);
+        if (changed.length > 0) this.emitPatch(this.upsertPatch(changed));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      // Keep the service pointer aligned with the session's (mutated) snapshot.
+      this.snapshot = this.session.getSnapshot();
+      if (this.snapshot) writeSnapshot(this.snapshot.meta.root, this.snapshot);
+    });
+  }
+
+  /**
+   * Live-edit path: rebuild structural nodes/edges for the touched files via the
+   * engine, then run status enrichment for the affected packages. Returns the
+   * structural GraphPatch so the caller can broadcast it. Serialized so the
+   * reparse + snapshot swap are atomic against reindex/enrichment/reads.
+   */
+  async reparseAndEnrich(absPaths: string[]): Promise<GraphPatch> {
+    return this.serialize(() => {
+      const patch = this.session.reparseFiles(absPaths);
+      // reparseFiles mutates the session's snapshot in place; re-point ours to
+      // the same (now-updated) object so getSnapshot() reflects the new graph.
+      this.snapshot = this.session.getSnapshot();
+      if (this.snapshot) writeSnapshot(this.snapshot.meta.root, this.snapshot);
+      return patch;
+    });
   }
 
   async generateKnowledge(nodeId: string): Promise<GraphNode | null> {
@@ -81,7 +142,9 @@ export class GraphService {
     const source = readNodeSource(root, node);
 
     const llm = source
-      ? await askClaude(summaryPrompt(node, source), { model: 'haiku' })
+      ? await this.llmSlots.run(() =>
+          askClaude(summaryPrompt(node, source), { model: 'haiku' }),
+        )
       : null;
     const summary = llm ?? describeNode(node, source);
 
@@ -111,7 +174,7 @@ export class GraphService {
       .filter((n) => RETRIEVABLE.has(n.type))
       .map((n) => {
         const name = n.name.toLowerCase();
-        const filePath = (n.path ?? '').toLowerCase();
+        const filePath = (nodePath(n) ?? '').toLowerCase();
         const score = terms.reduce(
           (acc, t) =>
             acc + (name.includes(t) ? 2 : 0) + (filePath.includes(t) ? 1 : 0),
@@ -128,19 +191,23 @@ export class GraphService {
     }
 
     const context = ranked.map(({ node }) => ({
-      path: node.path ?? node.name,
+      path: nodePath(node) ?? node.name,
       source: readNodeSource(root, node).slice(0, CONTEXT_CHARS),
     }));
     const citations = ranked.map(({ node }) => node.id);
 
-    const llm = await askClaude(chatPrompt(question, context), {
-      model: 'haiku',
-      timeoutMs: 90000,
-    });
+    // Bound concurrent subprocesses: N parallel chat requests must not spawn N
+    // Claude CLIs at once.
+    const llm = await this.llmSlots.run(() =>
+      askClaude(chatPrompt(question, context), {
+        model: 'haiku',
+        timeoutMs: 90000,
+      }),
+    );
     if (llm) return { answer: llm, citations, usedLlm: true };
 
     const fallback = ranked
-      .map(({ node }) => `- ${node.path ?? node.name} (${node.type} ${node.name})`)
+      .map(({ node }) => `- ${nodePath(node) ?? node.name} (${node.type} ${node.name})`)
       .join('\n');
     return {
       answer: `Closest matches in the codebase:\n${fallback}`,
@@ -149,17 +216,27 @@ export class GraphService {
     };
   }
 
-  enrichFiles(relPaths: string[]): GraphNode[] {
-    const packages = new Map<string, ReturnType<typeof this.session.findPackageForFile>>();
-    for (const rel of relPaths) {
-      const pkg = this.session.findPackageForFile(rel);
-      if (pkg) packages.set(pkg.name, pkg);
-    }
-    const changed: GraphNode[] = [];
-    for (const pkg of packages.values()) {
-      if (pkg) changed.push(...this.session.enrichPackageStatus(pkg));
-    }
-    if (changed.length > 0) this.emitPatch(this.upsertPatch(changed));
-    return changed;
+  /**
+   * Status-only enrichment for a set of changed files (used as a follow-up after
+   * structural reparse). Serialized against other mutations.
+   */
+  async enrichFiles(relPaths: string[]): Promise<GraphNode[]> {
+    return this.serialize(() => {
+      const packages = new Map<
+        string,
+        ReturnType<typeof this.session.findPackageForFile>
+      >();
+      for (const rel of relPaths) {
+        const pkg = this.session.findPackageForFile(rel);
+        if (pkg) packages.set(pkg.name, pkg);
+      }
+      const changed: GraphNode[] = [];
+      for (const pkg of packages.values()) {
+        if (pkg) changed.push(...this.session.enrichPackageStatus(pkg));
+      }
+      this.snapshot = this.session.getSnapshot();
+      if (changed.length > 0) this.emitPatch(this.upsertPatch(changed));
+      return changed;
+    });
   }
 }

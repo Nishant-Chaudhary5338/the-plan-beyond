@@ -1,13 +1,14 @@
-import type { GraphNode } from '@repo/code-graph-core';
+import { nodePath, type GraphNode } from '@repo/code-graph-core';
 
-export const summaryPrompt = (node: GraphNode, source: string): string =>
-  [
+export const summaryPrompt = (node: GraphNode, source: string): string => {
+  const filePath = nodePath(node);
+  return [
     `You are documenting a TypeScript/React codebase.`,
     `In 1-2 plain sentences, describe what this ${node.type} does and why it exists.`,
     `Be specific and concrete. No preamble, no markdown, just the description.`,
     ``,
     `Name: ${node.name}`,
-    node.path ? `Path: ${node.path}` : '',
+    filePath ? `Path: ${filePath}` : '',
     ``,
     `Code:`,
     '```tsx',
@@ -16,6 +17,7 @@ export const summaryPrompt = (node: GraphNode, source: string): string =>
   ]
     .filter(Boolean)
     .join('\n');
+};
 
 export const chatPrompt = (
   question: string,

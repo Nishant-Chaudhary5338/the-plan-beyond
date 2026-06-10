@@ -55,7 +55,7 @@ export function findWorkspaceRoot(startDir?: string): string {
     const pkgPath = path.join(current, 'package.json');
     if (fs.existsSync(pkgPath)) {
       try {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as { workspaces?: unknown };
         if (pkg.workspaces) {
           return current;
         }

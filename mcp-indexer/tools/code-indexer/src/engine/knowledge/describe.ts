@@ -1,11 +1,15 @@
 import type { GraphNode } from '@repo/code-graph-core';
+import { hasMetrics } from '@repo/code-graph-core';
 
 const countMatches = (source: string, re: RegExp): number =>
   (source.match(re) ?? []).length;
 
 const extractImports = (source: string): string[] => {
   const matches = source.matchAll(/from\s+['"]([^'"]+)['"]/g);
-  return [...matches].map((m) => m[1]).slice(0, 6);
+  return [...matches]
+    .map((m) => m[1])
+    .filter((s): s is string => s !== undefined)
+    .slice(0, 6);
 };
 
 // Deterministic, zero-cost summary from code structure — used as a fallback
@@ -19,7 +23,8 @@ export const describeNode = (node: GraphNode, source: string): string => {
 
   const parts: string[] = [];
   const kind = node.type === 'component' ? 'React component' : node.type;
-  parts.push(`${kind} \`${node.name}\` (${node.metrics.loc} LOC).`);
+  const loc = hasMetrics(node) ? node.metrics.loc : 0;
+  parts.push(`${kind} \`${node.name}\` (${loc} LOC).`);
 
   if (node.type === 'component') {
     const traits: string[] = [];

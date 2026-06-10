@@ -1,5 +1,5 @@
 import * as path from 'path';
-import type { GraphNode, GraphEdge } from '@repo/code-graph-core';
+import type { GraphNode, GraphEdge, FolderNode } from '@repo/code-graph-core';
 import { folderId, edgeId, emptyStatus } from '@repo/code-graph-core';
 
 const folderNode = (
@@ -7,18 +7,16 @@ const folderNode = (
   name: string,
   relPath: string,
   parentId: string,
-): GraphNode => ({
+): FolderNode => ({
   id,
   type: 'folder',
   name,
   path: relPath,
   parentId,
-  span: null,
   contentHash: null,
   status: emptyStatus(),
   knowledge: null,
   git: null,
-  bundleBytes: null,
   metrics: { loc: 0, exportsCount: 0 },
 });
 

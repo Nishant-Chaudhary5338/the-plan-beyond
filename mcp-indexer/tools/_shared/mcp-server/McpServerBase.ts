@@ -86,7 +86,7 @@ export abstract class McpServerBase {
    */
   private setupHandlers(): void {
     // ListTools handler
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    this.server.setRequestHandler(ListToolsRequestSchema, () => ({
       tools: this.registry.getAllDefinitions(),
     }));
 
@@ -120,8 +120,8 @@ export abstract class McpServerBase {
       console.error(`[${this.config.name}] MCP Error:`, error);
     };
 
-    process.on('SIGINT', async () => {
-      await this.shutdown();
+    process.on('SIGINT', () => {
+      void this.shutdown();
     });
   }
 

@@ -15,9 +15,10 @@
     "./knowledge": "./build/code-indexer/src/engine/knowledge/index.js"
   },
   "scripts": {
-    "build": "tsc --noEmitOnError false; node -e \"try{require('fs').chmodSync('build/code-indexer/src/index.js','755');require('fs').chmodSync('build/code-indexer/src/cli.js','755')}catch(e){}\"",
+    "build": "tsc && node -e \"try{require('fs').chmodSync('build/code-indexer/src/index.js','755');require('fs').chmodSync('build/code-indexer/src/cli.js','755')}catch(e){}\"",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
     "test": "vitest run",
     "index": "node build/code-indexer/src/cli.js index"
   },

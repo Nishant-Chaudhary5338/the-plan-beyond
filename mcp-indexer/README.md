@@ -34,10 +34,10 @@ The indexer is **generic** — it discovers the workspace shape itself and handl
 ```bash
 pnpm install
 pnpm build        # turbo builds code-graph-core → _shared → code-indexer (topo order)
-pnpm test         # 18 tests across the engine + schema packages
+pnpm test         # unit tests across the engine + schema packages (run via turbo)
 ```
 
-> Requires Node ≥ 20.19 and pnpm 8. `pnpm build` is required before running the CLI or server — the server runs via `tsx` but imports the compiled engine, and the CLI/MCP entrypoints are compiled JS.
+> Requires Node ≥ 20.19 and pnpm 10 (pinned to `pnpm@10.32.1` via `packageManager`; `corepack enable` selects it). `pnpm build` is required before running the CLI or server — the server runs via `tsx` but imports the compiled engine, and the CLI/MCP entrypoints are compiled JS.
 
 ---
 
@@ -70,6 +70,19 @@ curl localhost:3002/api/graph | jq '.meta'
 curl localhost:3002/api/node/file:src/App.tsx | jq '.node | {type, metrics, status}'
 # { "type": "file", "metrics": { "loc": 12, "exportsCount": 1 }, "status": { "buildOk": true, "health": "ok" } }
 ```
+
+**Web UI (3D graph).** With the server running, launch the visual front-end — an
+interactive [`react-force-graph-3d`](https://github.com/vasturiano/react-force-graph)
+viewer with drill-down (repo → app → package → file → component), live
+type-health coloring, AI summaries, impact analysis, and a codebase chat:
+
+```bash
+pnpm ui          # → http://localhost:5182  (Vite proxies /api + /ws → :3002)
+```
+
+The UI lives in [`apps/web/code-graph`](apps/web/code-graph) and is a pure
+consumer of the HTTP + WS API above — it loads `GET /api/graph`, then applies
+live `GraphPatch`es pushed over `WS /ws` as you edit files.
 
 ### 2. CLI (one-shot snapshot)
 
@@ -174,7 +187,7 @@ target repo ──▶ discoverWorkspace ──▶ ts-morph parse ──▶ build
 | `pnpm build` | Build all packages (topo order via turbo) |
 | `pnpm typecheck` | `tsc --noEmit` across every package |
 | `pnpm test` | Unit tests (schemas + engine) |
-| `pnpm lint` | ESLint (shared flat config) |
+| `pnpm lint` | ESLint across all packages (`turbo run lint`, shared flat config from `packages/eslint-config`) |
 | `pnpm index -- --root <path>` | Index any repo to `<path>/.code-graph/graph.json` |
 | `pnpm serve` | Run the server against **this** repo (`:3002`) |
 | `pnpm index:app` / `pnpm serve:app` | The same, pointed at the sibling `../app` (The Plan Beyond) |
@@ -187,4 +200,4 @@ TypeScript (strict) · Turborepo · pnpm workspaces · ts-morph · Zod · Expres
 
 ## Status
 
-`pnpm build` ✓ · `pnpm typecheck` ✓ (7/7) · `pnpm test` ✓ (18) — verified against the sibling app (The Plan Beyond) via CLI, HTTP/WS, and MCP.
+`pnpm build` ✓ · `pnpm typecheck` ✓ · `pnpm lint` ✓ · `pnpm test` ✓ — verified against the sibling app (The Plan Beyond) via CLI, HTTP/WS, and MCP. CI runs the same gate (`build → typecheck → lint → test`) on every push and PR (`.github/workflows/ci.yml`).

@@ -10,12 +10,10 @@ const node = (id: string, typeErrors = 0): GraphNode => ({
   name: id,
   path: `${id}.ts`,
   parentId: null,
-  span: null,
   contentHash: 'h',
   status: { ...emptyStatus(), typeErrors },
   knowledge: null,
   git: null,
-  bundleBytes: null,
   metrics: { loc: 1, exportsCount: 0 },
 });
 

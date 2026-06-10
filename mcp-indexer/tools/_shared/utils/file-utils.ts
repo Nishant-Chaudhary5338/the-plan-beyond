@@ -4,6 +4,28 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
+
+/**
+ * Stable content hash (sha256, hex) of a string. Used by the code-graph engine
+ * to decide whether a file's structure can be reused on an incremental reindex.
+ * Newline-normalized so a pure CRLF<->LF change does not invalidate the cache.
+ */
+export function hashContent(content: string): string {
+  const normalized = content.replace(/\r\n/g, '\n');
+  return crypto.createHash('sha256').update(normalized, 'utf-8').digest('hex');
+}
+
+/**
+ * Content hash of a file on disk, or null if it cannot be read.
+ */
+export function hashFile(filePath: string): string | null {
+  try {
+    return hashContent(fs.readFileSync(filePath, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Ensure a directory exists, creating it if necessary
