@@ -87,7 +87,15 @@ export const ContactRow = memo(function ContactRow({
         )}
       </td>
       <td className="hidden py-3 pr-3 lg:table-cell">
-        {contact.isBeyondCircle ? <Badge variant="accent">On</Badge> : <span className="text-faint">Off</span>}
+        {/* Read-only state, shown as symmetric pills so On/Off read at a glance;
+            "Off" uses legible muted text, not faint (UX brief A4, Option A). */}
+        {contact.isBeyondCircle ? (
+          <Badge variant="accent">On</Badge>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-xs font-medium leading-none text-muted ring-1 ring-line">
+            Off
+          </span>
+        )}
       </td>
       <td className="py-3 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
         <IconButton

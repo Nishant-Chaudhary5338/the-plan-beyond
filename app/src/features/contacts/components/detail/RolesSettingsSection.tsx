@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
-import { Switch, Select, Popover, Badge, Checkbox, Field } from '@/components/ui';
+import { Switch, Select, Popover, Badge, Checkbox, Field, InfoPopover, ConfirmDialog, toast } from '@/components/ui';
 import { SectionCard } from './SectionCard';
 import { GROUPS, RELATIONSHIPS, type Contact } from '../../model/types';
+import { displayName } from '../../utils/filterContacts';
+import { ROLE_DEFINITIONS, TOGGLE_CONSEQUENCE, OFF_TOGGLE_CONFIRM } from '../../model/microcopy';
 
 interface RolesSettingsSectionProps {
   draft: Contact;
@@ -10,24 +13,65 @@ interface RolesSettingsSectionProps {
 
 const RELATIONSHIP_OPTIONS = RELATIONSHIPS.map((r) => ({ value: r, label: r }));
 
-function ToggleRow({
-  label,
-  checked,
-  onChange,
-}: {
+interface RoleToggleProps {
   label: string;
+  /** One-line consequence shown beneath the toggle (B2). */
+  consequence: string;
+  /** ⓘ definition + example (B2). */
+  info: { definition: string; example: string };
   checked: boolean;
   onChange: (v: boolean) => void;
-}) {
+  /** Confirm body shown when turning the role OFF (B3). */
+  confirmOffBody: string;
+  /** Toast suffix after an OFF, e.g. "removed from your Beyond Circle". */
+  offToast: string;
+}
+
+/**
+ * A consequential role toggle: turning ON is instant; turning OFF requires a
+ * quiet confirm naming what it removes, then offers an Undo toast (B3). The
+ * knob slide + colour cross-fade are handled by the Switch (reduced-motion
+ * respected globally).
+ */
+function RoleToggle({ label, consequence, info, checked, onChange, confirmOffBody, offToast }: RoleToggleProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const handle = (next: boolean) => {
+    if (next) onChange(true); // ON is instant, no confirm
+    else setConfirmOpen(true); // OFF is consequential → confirm
+  };
+
+  const confirmOff = () => {
+    onChange(false);
+    setConfirmOpen(false);
+    toast(offToast, { action: { label: 'Undo', onClick: () => onChange(true) } });
+  };
+
   return (
-    <label className="flex items-center justify-between gap-3 py-1">
-      <span className="text-sm text-content">{label}</span>
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
-    </label>
+    <div className="py-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-0.5 text-sm text-content">
+          {label}
+          <InfoPopover label={label} definition={info.definition} example={info.example} />
+        </span>
+        <Switch checked={checked} onCheckedChange={handle} aria-label={label} />
+      </div>
+      <p className="mt-0.5 max-w-[40ch] text-xs text-faint">{consequence}</p>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(o) => !o && setConfirmOpen(false)}
+        title={`Turn off ${label}?`}
+        description={confirmOffBody}
+        confirmLabel="Remove"
+        destructive
+        onConfirm={confirmOff}
+      />
+    </div>
   );
 }
 
 export function RolesSettingsSection({ draft, patch }: RolesSettingsSectionProps) {
+  const name = displayName(draft) || 'this contact';
   const toggleGroup = (g: string) => {
     const next = draft.groups.includes(g)
       ? draft.groups.filter((x) => x !== g)
@@ -42,15 +86,23 @@ export function RolesSettingsSection({ draft, patch }: RolesSettingsSectionProps
       </p>
 
       <div className="space-y-1">
-        <ToggleRow
+        <RoleToggle
           label="Emergency Contact"
+          consequence={TOGGLE_CONSEQUENCE.emergency}
+          info={ROLE_DEFINITIONS.emergency}
           checked={draft.isEmergencyContact}
           onChange={(v) => patch({ isEmergencyContact: v })}
+          confirmOffBody={OFF_TOGGLE_CONFIRM.emergency(name)}
+          offToast={`${name} removed as an emergency contact`}
         />
-        <ToggleRow
+        <RoleToggle
           label="Beyond Circle"
+          consequence={TOGGLE_CONSEQUENCE.beyondCircle}
+          info={ROLE_DEFINITIONS.beyondCircle}
           checked={draft.isBeyondCircle}
           onChange={(v) => patch({ isBeyondCircle: v })}
+          confirmOffBody={OFF_TOGGLE_CONFIRM.beyondCircle(name)}
+          offToast={`${name} removed from your Beyond Circle`}
         />
       </div>
 

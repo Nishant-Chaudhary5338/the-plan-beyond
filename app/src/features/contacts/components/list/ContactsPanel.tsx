@@ -4,6 +4,7 @@ import { Button, EmptyState } from '@/components/ui';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useContactsQuery } from '../../hooks/useContactsQuery';
 import { useContactDeletion } from '../../hooks/useContactDeletion';
+import { useContactsStats } from '../../hooks/useContactsStats';
 import {
   setFilter,
   setPage,
@@ -24,6 +25,7 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
   const dispatch = useAppDispatch();
   const selectedIds = useAppSelector((s) => s.contactsUi.selectedIds);
   const { data, isLoading, isFetching, isError, refetch, filters } = useContactsQuery();
+  const { available_letters, contacts: { total: peopleTotal } } = useContactsStats();
   const { pendingDelete, setPendingDelete, confirmDelete, deleteMany, isDeleting } =
     useContactDeletion();
   const [bulkConfirm, setBulkConfirm] = useState(false);
@@ -56,7 +58,7 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
               type="search"
               value={filters.search}
               onChange={(e) => dispatch(setFilter({ key: 'search', value: e.target.value }))}
-              placeholder="Search contacts…"
+              placeholder={peopleTotal > 0 ? `Filter these ${peopleTotal} people…` : 'Filter contacts…'}
               aria-label="Search contacts"
               className="h-10 w-full rounded-full bg-white/5 pl-9 pr-3 text-sm text-content placeholder:text-muted ring-1 ring-inset ring-line focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -66,6 +68,7 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <AlphabetIndex
             value={filters.letter}
+            availableLetters={available_letters}
             onChange={(letter: LetterFilter) => dispatch(setFilter({ key: 'letter', value: letter }))}
           />
           <SortMenu

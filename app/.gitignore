@@ -22,3 +22,4 @@ pnpm-debug.log*
 playwright-report
 test-results
 storybook-static
+screenshots

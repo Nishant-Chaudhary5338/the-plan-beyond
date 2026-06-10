@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { Switch } from '@/components/ui';
+import { Switch, InfoPopover } from '@/components/ui';
 import { SidebarCard } from './SidebarCard';
+import { ROLE_DEFINITIONS } from '../../model/microcopy';
 
 interface BeyondCircleCardProps {
   count: number;
@@ -15,7 +16,16 @@ export function BeyondCircleCard({ count, total }: BeyondCircleCardProps) {
   // persist changes via a settings mutation once that endpoint exists.
   const [enabled, setEnabled] = useState(true);
   return (
-    <SidebarCard title="Beyond Circle">
+    <SidebarCard
+      title="Beyond Circle"
+      info={
+        <InfoPopover
+          label="Beyond Circle"
+          definition={ROLE_DEFINITIONS.beyondCircle.definition}
+          example={ROLE_DEFINITIONS.beyondCircle.example}
+        />
+      }
+    >
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs uppercase tracking-wide text-faint">Contacts</div>

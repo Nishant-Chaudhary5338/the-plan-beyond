@@ -4,16 +4,21 @@ import { cn } from '@/lib/cn';
 interface SidebarCardProps {
   title: string;
   action?: ReactNode;
+  /** Optional ⓘ affordance rendered next to the title (UX brief A2). */
+  info?: ReactNode;
   children: ReactNode;
   className?: string;
 }
 
 /** Shared frame for the People sidebar stat cards. */
-export function SidebarCard({ title, action, children, className }: SidebarCardProps) {
+export function SidebarCard({ title, action, info, children, className }: SidebarCardProps) {
   return (
     <section className={cn('panel p-4', className)}>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-faint">{title}</h2>
+        <div className="flex items-center gap-1">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-faint">{title}</h2>
+          {info}
+        </div>
         {action}
       </div>
       {children}

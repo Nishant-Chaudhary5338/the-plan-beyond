@@ -1,5 +1,6 @@
 import { Field, Input, Select, DateInput } from '@/components/ui';
 import { SectionCard } from './SectionCard';
+import { OptionalField } from './OptionalField';
 import { TITLES, type Contact, type Title } from '../../model/types';
 
 interface PersonalInfoSectionProps {
@@ -12,8 +13,8 @@ const TITLE_OPTIONS = TITLES.map((t) => ({ value: t, label: t }));
 export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) {
   return (
     <SectionCard title="Personal Information">
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Title">
+      <div className="grid items-start gap-5 sm:grid-cols-2">
+        <OptionalField label="Title" value={draft.title ?? ''}>
           {(props) => (
             <Select
               {...props}
@@ -23,8 +24,12 @@ export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) 
               placeholder="Select title…"
             />
           )}
-        </Field>
-        <Field label="First name" required>
+        </OptionalField>
+        <Field
+          label="First name"
+          required
+          error={draft.firstName.trim() ? undefined : 'First name is required'}
+        >
           {(props) => (
             <Input
               {...props}
@@ -34,7 +39,7 @@ export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) 
             />
           )}
         </Field>
-        <Field label="Middle name">
+        <OptionalField label="Middle name" value={draft.middleName}>
           {(props) => (
             <Input
               {...props}
@@ -43,8 +48,8 @@ export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) 
               placeholder="Enter middle name"
             />
           )}
-        </Field>
-        <Field label="Last name">
+        </OptionalField>
+        <OptionalField label="Last name" value={draft.lastName}>
           {(props) => (
             <Input
               {...props}
@@ -53,8 +58,8 @@ export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) 
               placeholder="Enter last name"
             />
           )}
-        </Field>
-        <Field label="Date of birth">
+        </OptionalField>
+        <OptionalField label="Date of birth" value={draft.dateOfBirth ?? ''}>
           {(props) => (
             <DateInput
               {...props}
@@ -62,8 +67,8 @@ export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) 
               onChange={(e) => patch({ dateOfBirth: e.target.value })}
             />
           )}
-        </Field>
-        <Field label="Anniversary">
+        </OptionalField>
+        <OptionalField label="Anniversary" value={draft.anniversary ?? ''}>
           {(props) => (
             <DateInput
               {...props}
@@ -71,7 +76,7 @@ export function PersonalInfoSection({ draft, patch }: PersonalInfoSectionProps) 
               onChange={(e) => patch({ anniversary: e.target.value })}
             />
           )}
-        </Field>
+        </OptionalField>
       </div>
     </SectionCard>
   );

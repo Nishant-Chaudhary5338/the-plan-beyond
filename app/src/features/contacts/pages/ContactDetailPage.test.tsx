@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { screen, waitFor } from '@testing-library/react';
+import type { UserEvent } from '@testing-library/user-event';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import { mswServer } from '@/test/msw/server';
@@ -16,6 +17,12 @@ function setup(id = 'seed-001') {
   );
 }
 
+/** B7: optional empty fields collapse to "+ Add {label}"; reveal one before editing. */
+async function reveal(user: UserEvent, label: string) {
+  const btn = screen.queryByRole('button', { name: new RegExp(`^add ${label}$`, 'i') });
+  if (btn) await user.click(btn);
+}
+
 describe('ContactDetailPage (integration)', () => {
   it('loads the contact into the form', async () => {
     setup();
@@ -29,6 +36,7 @@ describe('ContactDetailPage (integration)', () => {
     await screen.findByRole('heading', { name: 'Amit Bansal' });
     expect(screen.queryByRole('region', { name: /unsaved changes/i })).not.toBeInTheDocument();
 
+    await reveal(user, 'middle name');
     await user.type(screen.getByLabelText(/middle name/i), 'Kumar');
     expect(screen.getByRole('region', { name: /unsaved changes/i })).toBeInTheDocument();
 
@@ -41,6 +49,7 @@ describe('ContactDetailPage (integration)', () => {
   it('persists Date of Birth across the post-save refetch (BUG-1)', async () => {
     const { user } = setup();
     await screen.findByRole('heading', { name: 'Amit Bansal' });
+    await reveal(user, 'date of birth');
     const dob = screen.getByLabelText(/date of birth/i);
     await user.clear(dob);
     await user.type(dob, '1990-05-20');
@@ -62,6 +71,7 @@ describe('ContactDetailPage (integration)', () => {
     const { user } = setup();
     await screen.findByRole('heading', { name: 'Amit Bansal' });
 
+    await reveal(user, 'middle name');
     await user.type(screen.getByLabelText(/middle name/i), 'Kumar');
     expect(screen.getByLabelText(/middle name/i)).toHaveValue('Kumar');
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -77,6 +87,7 @@ describe('ContactDetailPage (integration)', () => {
   it('discards edits and reverts the field', async () => {
     const { user } = setup();
     await screen.findByRole('heading', { name: 'Amit Bansal' });
+    await reveal(user, 'middle name');
     const middle = screen.getByLabelText(/middle name/i);
     await user.type(middle, 'Temp');
     await user.click(screen.getByRole('button', { name: 'Discard' }));
@@ -94,6 +105,9 @@ describe('ContactDetailPage (integration)', () => {
     const { user } = setup();
     await screen.findByRole('heading', { name: 'Amit Bansal' });
 
+    // Professional is collapsed by default (B8) — expand it before editing it.
+    await user.click(screen.getByRole('button', { name: 'Professional' }));
+
     const edits: ReadonlyArray<readonly [string | RegExp, string]> = [
       ['Flat / Building', 'A1'],
       ['Street / Locality', 'Main St'],
@@ -110,8 +124,11 @@ describe('ContactDetailPage (integration)', () => {
       ['Notes', 'a note'],
     ];
     for (const [label, text] of edits) {
+      // Reveal any optional field that's collapsed to "+ Add" (B7).
+      if (typeof label === 'string') await reveal(user, label);
       await user.type(screen.getByLabelText(label), text);
     }
+    await reveal(user, 'anniversary');
     await user.type(screen.getByLabelText(/anniversary/i), '2020-05-20');
 
     expect(screen.getByLabelText('Company')).toHaveValue('NorthwindAcme');

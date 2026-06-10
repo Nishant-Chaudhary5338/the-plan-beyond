@@ -28,6 +28,8 @@ export const peopleOverviewSchema = z.object({
     mode: z.string(),
     total_recipients: z.number(),
   }),
+  /** The A–Z initials that currently have at least one contact (for rail dimming). */
+  available_letters: z.array(z.string()).default([]),
 });
 
 export const trusteeInviteSchema = z.object({

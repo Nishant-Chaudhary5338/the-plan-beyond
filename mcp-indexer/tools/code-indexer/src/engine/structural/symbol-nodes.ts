@@ -22,7 +22,23 @@ import {
 } from '@repo/code-graph-core';
 import { classifySymbol, isPascalCase, returnsJsx } from './detect-components.js';
 
-type SymbolResult = { nodes: GraphNode[]; edges: GraphEdge[] };
+/**
+ * A symbol node paired with the AST node that spans its body, retained so the
+ * semantic pass ({@link extractSemanticEdges}) can attribute the JSX/calls
+ * inside that body back to this symbol without re-deriving spans.
+ */
+export type EmittedSymbol = {
+  id: string;
+  name: string;
+  type: 'component' | 'function';
+  spanNode: Node;
+};
+
+type SymbolResult = {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  symbols: EmittedSymbol[];
+};
 
 const containsEdge = (parent: string, child: string): GraphEdge => ({
   id: edgeId(parent, child, 'contains'),
@@ -165,8 +181,9 @@ const spanOf = (node: Node): { node: Node; startLine: number; endLine: number } 
 });
 
 // Turn `page.tsx` -> `Page`, `user-card.tsx` -> `UserCard` for naming anonymous
-// default exports.
-const nameFromFile = (relPath: string): string => {
+// default exports. Exported so the semantic pass can reconstruct the node name a
+// default import resolves to (default exports are named from their filename).
+export const nameFromFile = (relPath: string): string => {
   const base = path.basename(relPath).replace(/\.(tsx|ts|jsx|js)$/, '');
   const cleaned = base === 'index' ? path.basename(path.dirname(relPath)) : base;
   return cleaned
@@ -191,6 +208,7 @@ export const extractSymbolNodes = (
   const isTsx = relPath.endsWith('.tsx');
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
+  const symbols: EmittedSymbol[] = [];
 
   // Track how many times each name has been emitted so duplicate/overloaded
   // names get a stable occurrence index instead of a line number.
@@ -216,6 +234,9 @@ export const extractSymbolNodes = (
     );
     nodes.push(node);
     edges.push(edge);
+    if (node.type === 'component' || node.type === 'function') {
+      symbols.push({ id: node.id, name, type: node.type, spanNode: span.node });
+    }
   };
 
   // 1. Exported function declarations.
@@ -283,5 +304,5 @@ export const extractSymbolNodes = (
     emit(name, spanOf(fn), force);
   }
 
-  return { nodes, edges };
+  return { nodes, edges, symbols };
 };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Check, X, Plus, Star, Trash2 } from 'lucide-react';
-import { Badge, Button, IconButton, Input, PhoneInput, DEFAULT_PHONE_VALUE, type PhoneValue } from '@/components/ui';
+import { Badge, Button, IconButton, Input, InfoPopover, PhoneInput, DEFAULT_PHONE_VALUE, type PhoneValue } from '@/components/ui';
 import { SectionCard } from './SectionCard';
 import { formatPhoneDisplay, canonicalizePhone } from '@/lib/phone';
 import { isEmail } from '@/lib/validators';
@@ -55,10 +55,22 @@ export function ContactInfoCard({
       <ul className="space-y-3">
         {draft.phones.map((p) => (
           <li key={p.id} className="flex items-center justify-between gap-2">
-            <span className="text-sm text-content">{formatPhoneDisplay(p.e164)}</span>
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className="truncate text-sm text-content">{formatPhoneDisplay(p.e164)}</span>
+              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted">
+                {p.phoneType ?? 'mobile'}
+              </span>
+            </span>
             <span className="flex items-center gap-1">
               {p.isIdentifier ? (
-                <Badge variant="outline">Identifier</Badge>
+                <span className="flex items-center">
+                  <Badge variant="outline">Identifier</Badge>
+                  <InfoPopover
+                    label="Identifier"
+                    definition="The contact detail their account is matched to if you invite them to The Plan Beyond."
+                    example="Reassign it anytime with the star on another number."
+                  />
+                </span>
               ) : (
                 <IconButton label="Set as identifier" size="sm" onClick={() => setIdentifier(p.id)}>
                   <Star className="size-4" />

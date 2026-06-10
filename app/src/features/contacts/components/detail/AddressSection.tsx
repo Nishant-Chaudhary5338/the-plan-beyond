@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { MapPin, Users, Search } from 'lucide-react';
-import { Field, Input, Popover } from '@/components/ui';
+import { Input, Popover } from '@/components/ui';
 import { SectionCard } from './SectionCard';
+import { OptionalField } from './OptionalField';
 import { useGetContactsQuery } from '../../api/contactsApi';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { MAX_PAGE_SIZE } from '../../model/filters';
@@ -115,25 +116,25 @@ export function AddressSection({ draft, patchAddress }: AddressSectionProps) {
         ) : null}
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Flat / Building">
+      <div className="grid items-start gap-5 sm:grid-cols-2">
+        <OptionalField label="Flat / Building" value={draft.address.flat}>
           {(p) => <Input {...p} value={draft.address.flat} onChange={(e) => patchAddress({ flat: e.target.value })} placeholder="Enter flat/building" />}
-        </Field>
-        <Field label="Street / Locality">
+        </OptionalField>
+        <OptionalField label="Street / Locality" value={draft.address.street}>
           {(p) => <Input {...p} value={draft.address.street} onChange={(e) => patchAddress({ street: e.target.value })} placeholder="Enter street/locality" />}
-        </Field>
-        <Field label="City">
+        </OptionalField>
+        <OptionalField label="City" value={draft.address.city}>
           {(p) => <Input {...p} value={draft.address.city} onChange={(e) => patchAddress({ city: e.target.value })} placeholder="Enter city" />}
-        </Field>
-        <Field label="State">
+        </OptionalField>
+        <OptionalField label="State" value={draft.address.state}>
           {(p) => <Input {...p} value={draft.address.state} onChange={(e) => patchAddress({ state: e.target.value })} placeholder="Enter state" />}
-        </Field>
-        <Field label="Postal code">
+        </OptionalField>
+        <OptionalField label="Postal code" value={draft.address.postalCode}>
           {(p) => <Input {...p} value={draft.address.postalCode} onChange={(e) => patchAddress({ postalCode: e.target.value })} placeholder="Enter postal code" />}
-        </Field>
-        <Field label="Country">
+        </OptionalField>
+        <OptionalField label="Country" value={draft.address.country}>
           {(p) => <Input {...p} value={draft.address.country} onChange={(e) => patchAddress({ country: e.target.value })} placeholder="Enter country" />}
-        </Field>
+        </OptionalField>
       </div>
     </SectionCard>
   );

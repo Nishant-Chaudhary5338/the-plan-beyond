@@ -11,8 +11,12 @@ import type {
   Workspace,
   WorkspacePackage,
 } from '../discovery/discover-workspace.js';
-import { extractSymbolNodes } from './symbol-nodes.js';
+import { extractSymbolNodes, type EmittedSymbol } from './symbol-nodes.js';
 import { extractImportEdges } from './import-edges.js';
+import {
+  buildSymbolIndex,
+  extractSemanticEdges,
+} from './semantic-edges.js';
 import { ensureFolderChain } from './folder-tree.js';
 
 export type StructuralResult = {
@@ -156,6 +160,9 @@ export type FileExtraction = {
   contentHash: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** The file's symbol nodes paired with their AST spans, for the semantic
+   *  pass (renders/calls). Structural-only; never serialized. */
+  symbols: EmittedSymbol[];
 };
 
 /**
@@ -206,7 +213,7 @@ export const extractFile = (
     ...extractImportEdges(source, rel, workspaceRoot),
   ];
 
-  return { rel, contentHash, nodes, edges };
+  return { rel, contentHash, nodes, edges, symbols: symbols.symbols };
 };
 
 /**
@@ -234,6 +241,14 @@ export const indexStructure = (
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const folders = new Map<string, GraphNode>();
+  // Re-extracted files whose JSX/calls must be resolved in the semantic pass
+  // below. Reused (cache-hit) files keep their cached renders/calls edges, so
+  // they are deliberately excluded here.
+  const semanticInputs: Array<{
+    rel: string;
+    source: SourceFile;
+    symbols: EmittedSymbol[];
+  }> = [];
   let reusedFiles = 0;
   let reparsedFiles = 0;
 
@@ -288,6 +303,7 @@ export const indexStructure = (
         );
         nodes.push(...result.nodes);
         edges.push(...result.edges);
+        semanticInputs.push({ rel, source, symbols: result.symbols });
         reparsedFiles += 1;
       } catch (err) {
         // One unparseable file must not abort the whole index — log and skip.
@@ -301,6 +317,29 @@ export const indexStructure = (
   }
 
   nodes.push(...folders.values());
+
+  // Semantic pass: now that every file/symbol node exists (reused + reparsed),
+  // resolve the JSX/calls in each re-extracted file to symbol-level `renders`
+  // and `calls` edges. Runs over the complete symbol table so cross-file
+  // references (a component rendering one imported from another file) resolve.
+  const symbolIndex = buildSymbolIndex(nodes);
+  for (const input of semanticInputs) {
+    try {
+      edges.push(
+        ...extractSemanticEdges(
+          input.source,
+          input.rel,
+          input.symbols,
+          workspace.root,
+          symbolIndex,
+        ),
+      );
+    } catch (err) {
+      console.warn(
+        `[code-indexer] semantic edges skipped ${input.rel}: ${(err as Error).message}`,
+      );
+    }
+  }
 
   return {
     projects,

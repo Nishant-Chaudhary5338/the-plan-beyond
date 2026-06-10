@@ -1,18 +1,35 @@
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { Button, InfoPopover } from '@/components/ui';
 import { SidebarCard } from './SidebarCard';
+import { StatusLine } from './StatusLine';
 import { InviteTrusteeDialog } from './InviteTrusteeDialog';
+import { ROLE_DEFINITIONS } from '../../model/microcopy';
 import type { PeopleOverview } from '../../model/overview';
 
 /** Trustees overview, driven by the live `/people` aggregate. */
 export function TrusteesCard({ trustees }: { trustees: PeopleOverview['trustees'] }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const atRisk = trustees.status === 'at_risk';
+  const active = trustees.active_count;
+  // Warm, finishable status — color is a quiet signal, copy reassures (brief A1).
+  const status =
+    active === 0
+      ? { tone: 'attention' as const, text: 'No trustees yet · Add one to activate your plan' }
+      : atRisk
+        ? { tone: 'attention' as const, text: `${active} active · Add another to finish setting up` }
+        : { tone: 'ok' as const, text: `${active} active · You’re all set` };
   return (
     <>
     <SidebarCard
       title="Trustees"
+      info={
+        <InfoPopover
+          label="Trustees"
+          definition={ROLE_DEFINITIONS.trustee.definition}
+          example={ROLE_DEFINITIONS.trustee.example}
+        />
+      }
       action={
         <Button variant="subtle" size="sm" onClick={() => setInviteOpen(true)}>
           + Invite
@@ -30,7 +47,6 @@ export function TrusteesCard({ trustees }: { trustees: PeopleOverview['trustees'
           <span aria-hidden="true" className="ml-1 text-sm text-faint">
             / {trustees.max_allowed} active
           </span>
-          {atRisk ? <p className="mt-1 text-xs font-medium text-warning">At risk</p> : null}
         </div>
         <div className="text-right">
           <span className="sr-only">{`${trustees.pending_count} pending requests`}</span>
@@ -42,9 +58,9 @@ export function TrusteesCard({ trustees }: { trustees: PeopleOverview['trustees'
           </div>
         </div>
       </div>
-      <p className="mt-3 border-t border-line pt-3 text-center text-sm text-faint">
-        {trustees.active_count === 0 ? 'No trustees yet' : `${trustees.active_count} active`}
-      </p>
+      <div className="mt-3 border-t border-line pt-3">
+        <StatusLine tone={status.tone} text={status.text} />
+      </div>
       <button
         type="button"
         disabled

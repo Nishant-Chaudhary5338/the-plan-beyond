@@ -22,7 +22,8 @@ describe('SegmentFilters', () => {
 
   it('sets the Emergency tri-state', async () => {
     const { user, store } = renderWithProviders(<SegmentFilters />, { route: '/contacts' });
-    await user.click(screen.getByRole('button', { name: /emergency/i }));
+    // Exact name avoids matching the adjacent "About Emergency contacts" ⓘ.
+    await user.click(screen.getByRole('button', { name: 'Emergency' }));
     await user.click(await screen.findByRole('menuitemradio', { name: 'Off' }));
     expect(store.getState().contactsUi.filters.emergency).toBe('off');
   });

@@ -21,6 +21,11 @@ import {
   buildReusableSubgraph,
   type ReusableSubgraph,
 } from './structural/micro-symbols.js';
+import {
+  buildSymbolIndex,
+  extractSemanticEdges,
+} from './structural/semantic-edges.js';
+import type { EmittedSymbol } from './structural/symbol-nodes.js';
 import { runTypecheck } from './status/typecheck-runner.js';
 import { mergePackageStatus } from './status/merge-status.js';
 import { readHashIndex, deriveHashIndex } from './incremental/cache.js';
@@ -162,26 +167,42 @@ export class IndexerSession {
     };
     if (!snapshot) return patch;
 
+    const changedRels = new Set<string>();
+    for (const abs of absPaths) {
+      const rel = path.relative(workspaceRoot, abs);
+      if (!rel.startsWith('..')) changedRels.add(rel);
+    }
+    // Expand with one hop of importers (from the pre-edit edges) so symbol-level
+    // edges pointing INTO a changed file are re-resolved against its new symbols
+    // rather than left dangling. See expandWithImporters.
+    const relsToReparse = this.expandWithImporters(snapshot, changedRels);
+
     const folders = new Map<string, GraphNode>();
     const folderEdges: GraphEdge[] = [];
 
-    for (const abs of absPaths) {
-      const rel = path.relative(workspaceRoot, abs);
-      if (rel.startsWith('..')) continue;
+    // Phase 1 — remove every reparse target up front, then resolve its live
+    // source. Doing all removals before any extraction is what prevents a later
+    // file's removal from clobbering an edge an earlier file just re-created
+    // (e.g. A imports C when both A and C are being reparsed).
+    const targets: Array<{
+      rel: string;
+      pkg: WorkspacePackage;
+      project: Project;
+      source: SourceFile;
+    }> = [];
+    for (const rel of relsToReparse) {
+      const removed = this.removeFileFromSnapshot(rel);
+      patch.removeNodeIds.push(...removed.nodeIds);
+      patch.removeEdgeIds.push(...removed.edgeIds);
 
       const pkg =
         this.fileToPackage.get(rel) ?? this.findPackageForFile(rel) ?? null;
       const project =
         this.fileToProject.get(rel) ??
         (pkg ? this.projects.get(pkg.name) ?? null : null);
-
-      // Remove everything currently attributed to this file.
-      const removed = this.removeFileFromSnapshot(rel);
-      patch.removeNodeIds.push(...removed.nodeIds);
-      patch.removeEdgeIds.push(...removed.edgeIds);
-
       if (!project || !pkg) continue;
 
+      const abs = path.join(workspaceRoot, rel);
       const source = this.refreshSource(project, abs);
       if (!source) {
         // File deleted on disk — removal already recorded above.
@@ -189,7 +210,16 @@ export class IndexerSession {
         this.fileToPackage.delete(rel);
         continue;
       }
+      targets.push({ rel, pkg, project, source });
+    }
 
+    // Phase 2 — re-extract structural nodes/edges for every surviving target.
+    const semanticInputs: Array<{
+      rel: string;
+      source: SourceFile;
+      symbols: EmittedSymbol[];
+    }> = [];
+    for (const { rel, pkg, project, source } of targets) {
       try {
         const result = extractFile(
           source,
@@ -199,11 +229,11 @@ export class IndexerSession {
           folders,
           folderEdges,
         );
-        // Apply to the in-memory snapshot.
         snapshot.nodes.push(...result.nodes);
         snapshot.edges.push(...result.edges);
         patch.upsertNodes.push(...result.nodes);
         patch.upsertEdges.push(...result.edges);
+        semanticInputs.push({ rel, source, symbols: result.symbols });
         this.fileToProject.set(rel, project);
         this.fileToPackage.set(rel, pkg);
       } catch (err) {
@@ -227,6 +257,39 @@ export class IndexerSession {
       }
     }
 
+    // Phase 3 — semantic pass: resolve renders/calls for every re-extracted
+    // file against the now-updated symbol table.
+    const symbolIndex = buildSymbolIndex(snapshot.nodes);
+    for (const input of semanticInputs) {
+      try {
+        const semantic = extractSemanticEdges(
+          input.source,
+          input.rel,
+          input.symbols,
+          workspaceRoot,
+          symbolIndex,
+        );
+        snapshot.edges.push(...semantic);
+        patch.upsertEdges.push(...semantic);
+      } catch (err) {
+        console.warn(
+          `[code-indexer] semantic edges skipped ${input.rel}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    // Reconcile: an id removed-then-recreated in this pass must not stay in the
+    // remove list, or a client applying upserts before removes would drop it.
+    // Net the delta to "upsert wins".
+    const upsertedNodeIds = new Set(patch.upsertNodes.map((n) => n.id));
+    patch.removeNodeIds = patch.removeNodeIds.filter(
+      (id) => !upsertedNodeIds.has(id),
+    );
+    const upsertedEdgeIds = new Set(patch.upsertEdges.map((e) => e.id));
+    patch.removeEdgeIds = patch.removeEdgeIds.filter(
+      (id) => !upsertedEdgeIds.has(id),
+    );
+
     snapshot.meta.nodeCount = snapshot.nodes.length;
     snapshot.meta.edgeCount = snapshot.edges.length;
     snapshot.meta.generatedAt = Date.now();
@@ -236,6 +299,36 @@ export class IndexerSession {
       generatedAt: snapshot.meta.generatedAt,
     };
     return patch;
+  }
+
+  /**
+   * Expand a set of changed file relPaths with one hop of *importers* — every
+   * file that has an `imports`/`references`/`renders`/`calls` edge pointing at a
+   * changed file. Those importers must be re-extracted too, because a symbol id
+   * inside a changed file may have moved (occurrence shift) or vanished, which
+   * would otherwise leave the importer's edge dangling. One hop suffices: only
+   * direct referrers hold an edge whose endpoint id changed.
+   */
+  private expandWithImporters(
+    snapshot: GraphSnapshot,
+    changedRels: Set<string>,
+  ): Set<string> {
+    const result = new Set(changedRels);
+    const relOf = (id: string): string | null => {
+      if (id.startsWith('file:')) return id.slice('file:'.length);
+      if (id.startsWith('cmp:')) return id.slice('cmp:'.length).split('#')[0] ?? null;
+      if (id.startsWith('fn:')) return id.slice('fn:'.length).split('#')[0] ?? null;
+      return null;
+    };
+    const DEP_TYPES = new Set(['imports', 'references', 'renders', 'calls']);
+    for (const edge of snapshot.edges) {
+      if (!DEP_TYPES.has(edge.type)) continue;
+      const targetRel = relOf(edge.target);
+      if (!targetRel || !changedRels.has(targetRel)) continue;
+      const sourceRel = relOf(edge.source);
+      if (sourceRel && sourceRel !== targetRel) result.add(sourceRel);
+    }
+    return result;
   }
 
   // Refresh a file from disk into the live project; returns null if it was

@@ -6,7 +6,7 @@ import {
   type CreateContactInput,
 } from '../model/types';
 import { makeSeedContacts } from '../mocks/seed';
-import { filterContacts, displayName } from '../utils/filterContacts';
+import { filterContacts, displayName, indexLetter } from '../utils/filterContacts';
 import type { ContactFilters } from '../model/filters';
 import type { PeopleOverview, TrusteeInvite } from '../model/overview';
 import { TRUSTEE_LIMIT } from '../model/constants';
@@ -102,6 +102,7 @@ export function createContactsService(seed: Contact[] = makeSeedContacts()) {
           pending_count: 0,
         },
         notify_circle: { enabled: true, mode: 'all', total_recipients: beyond },
+        available_letters: Array.from(new Set(contacts.map(indexLetter))).sort(),
       };
     },
 

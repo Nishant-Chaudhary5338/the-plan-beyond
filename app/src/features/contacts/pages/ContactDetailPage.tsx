@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { UserX } from 'lucide-react';
 import { Button, ConfirmDialog, EmptyState, Skeleton, toast } from '@/components/ui';
 import { useContactDraft } from '../hooks/useContactDraft';
+import { useUnsavedGuard } from '../hooks/useUnsavedGuard';
 import { useDeleteContactMutation } from '../api/contactsApi';
 import { displayName } from '../utils/filterContacts';
 import { ContactDetailHeader } from '../components/detail/ContactDetailHeader';
@@ -32,8 +33,11 @@ export default function ContactDetailPage() {
   const draftApi = useContactDraft(id);
   const [deleteContact, { isLoading: isDeleting }] = useDeleteContactMutation();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
 
   const { draft, isLoading, isError } = draftApi;
+  // Block back-link / sidebar / browser navigation while there are unsaved edits.
+  const blocker = useUnsavedGuard(draftApi.isDirty);
 
   if (isLoading) return <DetailSkeleton />;
   if (isError || !draft) {
@@ -54,7 +58,9 @@ export default function ContactDetailPage() {
   const handleSave = async () => {
     try {
       await draftApi.save();
-      toast.success('Changes saved');
+      // Acknowledge success in the bar (B4) rather than letting it silently vanish.
+      setSavedFlash(true);
+      window.setTimeout(() => setSavedFlash(false), 2500);
     } catch {
       toast.error("Couldn't save changes");
     }
@@ -98,6 +104,7 @@ export default function ContactDetailPage() {
       <UnsavedChangesBar
         visible={draftApi.isDirty}
         isSaving={draftApi.isSaving}
+        savedFlash={savedFlash}
         onDiscard={draftApi.discard}
         onSave={handleSave}
       />
@@ -111,6 +118,20 @@ export default function ContactDetailPage() {
         destructive
         isLoading={isDeleting}
         onConfirm={handleDelete}
+      />
+
+      {/* Unsaved-changes navigation guard (B4). */}
+      <ConfirmDialog
+        open={blocker.state === 'blocked'}
+        onOpenChange={(open) => {
+          if (!open && blocker.state === 'blocked') blocker.reset();
+        }}
+        title="Leave with unsaved changes?"
+        description="You have unsaved changes — they’ll be lost if you leave without saving."
+        confirmLabel="Leave without saving"
+        cancelLabel="Stay"
+        destructive
+        onConfirm={() => blocker.state === 'blocked' && blocker.proceed()}
       />
     </div>
   );

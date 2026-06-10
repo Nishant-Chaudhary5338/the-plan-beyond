@@ -2,10 +2,11 @@ import { forwardRef, useRef, type KeyboardEvent } from 'react';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { Popover, Checkbox } from '@/components/ui';
+import { Popover, Checkbox, InfoPopover } from '@/components/ui';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { setFilter } from '../../model/contactsSlice';
 import { GROUPS, RELATIONSHIPS } from '../../model/types';
+import { ROLE_DEFINITIONS } from '../../model/microcopy';
 import type { TriState } from '../../model/filters';
 
 const TRI_OPTIONS: { value: TriState; label: string }[] = [
@@ -148,17 +149,25 @@ export function SegmentFilters() {
         />
       </Popover>
 
-      <Popover trigger={<FilterPill label="Emergency" active={filters.emergency !== 'all'} />}>
-        <MenuList
-          ariaLabel="Filter by emergency contact"
-          options={TRI_OPTIONS.map((o) => ({
-            key: o.value,
-            label: o.label,
-            selected: filters.emergency === o.value,
-            onSelect: () => dispatch(setFilter({ key: 'emergency', value: o.value })),
-          }))}
+      <div className="flex items-center gap-1">
+        <Popover trigger={<FilterPill label="Emergency" active={filters.emergency !== 'all'} />}>
+          <MenuList
+            ariaLabel="Filter by emergency contact"
+            options={TRI_OPTIONS.map((o) => ({
+              key: o.value,
+              label: o.label,
+              selected: filters.emergency === o.value,
+              onSelect: () => dispatch(setFilter({ key: 'emergency', value: o.value })),
+            }))}
+          />
+        </Popover>
+        <InfoPopover
+          label="Emergency contacts"
+          title="Emergency"
+          definition={ROLE_DEFINITIONS.emergency.definition}
+          example={ROLE_DEFINITIONS.emergency.example}
         />
-      </Popover>
+      </div>
 
       <Popover trigger={<FilterPill label="Relationships" active={!!filters.relationship} />}>
         <MenuList
