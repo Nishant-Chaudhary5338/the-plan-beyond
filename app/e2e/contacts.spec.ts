@@ -25,10 +25,12 @@ test('paginates to the next page', async ({ page }) => {
 test('opens a contact, edits, and saves', async ({ page }) => {
   await page.getByRole('button', { name: 'Amit Bansal', exact: true }).click();
   await expect(page).toHaveURL(/\/contacts\/seed-001$/);
+  // Optional empty fields collapse to "+ Add" (B7) — reveal before editing.
+  await page.getByRole('button', { name: 'Add middle name' }).click();
   await page.getByLabel('Middle name').fill('Kumar');
   await expect(page.getByRole('region', { name: /unsaved changes/i })).toBeVisible();
   await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Changes saved')).toBeVisible();
+  await expect(page.getByText('All changes saved')).toBeVisible();
   await expect(page.getByRole('region', { name: /unsaved changes/i })).toBeHidden();
 });
 
