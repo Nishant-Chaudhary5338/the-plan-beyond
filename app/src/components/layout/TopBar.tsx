@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Zap, User } from 'lucide-react';
-import { Button, IconButton } from '@/components/ui';
+import { Button, IconButton, toast } from '@/components/ui';
 import { useAppDispatch } from '@/app/hooks';
 import { setFilter } from '@/features/contacts/model/contactsSlice';
 
@@ -54,11 +54,19 @@ export function TopBar() {
         </kbd>
       </form>
 
-      <Button variant="subtle" size="sm" className="ml-auto sm:ml-0">
+      {/* TODO(scope): wire to billing when it exists. Honest about being out of
+          scope rather than a silent dead-end (matches the Invite affordance). */}
+      <Button
+        variant="subtle"
+        size="sm"
+        className="ml-auto sm:ml-0"
+        onClick={() => toast.info('Plans & upgrades land in a later milestone — this build ships “My People”.')}
+      >
         <Zap className="size-4" />
         Upgrade
       </Button>
-      <IconButton label="Account" variant="solid">
+      {/* Account opens the profile area (the same place the nav's Profile links to). */}
+      <IconButton label="Account" variant="solid" onClick={() => navigate('/profile')}>
         <User className="size-4" />
       </IconButton>
     </header>

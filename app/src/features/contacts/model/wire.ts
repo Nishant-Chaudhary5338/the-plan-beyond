@@ -204,6 +204,10 @@ export const wireCreateSchema = z.object({
 /** Wire create request → internal create input (used by the mock). */
 export function fromWireCreate(raw: unknown): CreateContactInput {
   const w = wireCreateSchema.parse(raw);
+  // Contract: `phone_list` has ≥1 entry (schema-enforced) but `is_primary` is not
+  // required to be set on any of them. We deliberately fall back to the first
+  // phone rather than reject, so a backend that omits the flag still imports
+  // cleanly — `toWireCreate` always sets `is_primary: true` for our own writes.
   const primary = w.phone_list.find((p) => p.is_primary) ?? w.phone_list[0]!;
   return {
     firstName: w.first_name,

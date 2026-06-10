@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { Switch, Select, Popover, Badge, Checkbox, Field, InfoPopover, ConfirmDialog, toast } from '@/components/ui';
 import { SectionCard } from './SectionCard';
@@ -35,6 +35,9 @@ interface RoleToggleProps {
  */
 function RoleToggle({ label, consequence, info, checked, onChange, confirmOffBody, offToast }: RoleToggleProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Link the consequence line to the switch so a screen reader announces what
+  // turning it off removes — before the user flips it, not after.
+  const consequenceId = useId();
 
   const handle = (next: boolean) => {
     if (next) onChange(true); // ON is instant, no confirm
@@ -54,9 +57,9 @@ function RoleToggle({ label, consequence, info, checked, onChange, confirmOffBod
           {label}
           <InfoPopover label={label} definition={info.definition} example={info.example} />
         </span>
-        <Switch checked={checked} onCheckedChange={handle} aria-label={label} />
+        <Switch checked={checked} onCheckedChange={handle} aria-label={label} aria-describedby={consequenceId} />
       </div>
-      <p className="mt-0.5 max-w-[40ch] text-xs text-faint">{consequence}</p>
+      <p id={consequenceId} className="mt-0.5 max-w-[40ch] text-xs text-faint">{consequence}</p>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={(o) => !o && setConfirmOpen(false)}
@@ -159,7 +162,7 @@ export function RolesSettingsSection({ draft, patch }: RolesSettingsSectionProps
                     <Checkbox checked={draft.groups.includes(g)} readOnly tabIndex={-1} />
                     {g}
                   </span>
-                  {draft.groups.includes(g) ? <Check className="size-4 text-emerald-400" /> : null}
+                  {draft.groups.includes(g) ? <Check className="size-4 text-accent-bright" /> : null}
                 </button>
               ))}
             </div>

@@ -76,7 +76,7 @@ function SelectItem({ value, children }: { value: string; children: ReactNode })
   return (
     <RadixSelect.Item
       value={value}
-      className="relative flex cursor-pointer select-none items-center rounded-lg py-2 pl-3 pr-8 text-sm text-content outline-none data-[highlighted]:bg-white/8 data-[state=checked]:text-emerald-400"
+      className="relative flex cursor-pointer select-none items-center rounded-lg py-2 pl-3 pr-8 text-sm text-content outline-none data-[highlighted]:bg-white/8 data-[state=checked]:text-accent-bright"
     >
       <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
       <RadixSelect.ItemIndicator className="absolute right-2.5">

@@ -42,10 +42,10 @@ export const contactsApi = baseApi.injectEndpoints({
       query: (filters) => `/contacts${encodeFilters(filters)}`,
       transformResponse: (raw) => contactListResponseSchema.parse(raw),
       // Only the LIST tag — mutations invalidate `ContactList/LIST` to refetch the
-      // page. We intentionally don't provide per-item `Contact` tags here: no
-      // mutation invalidates an individual contact (detail stays fresh via the
-      // optimistic patch in `updateContact`), so per-row tags would imply
-      // refetch behavior that isn't wired.
+      // page. We intentionally don't provide per-item `Contact` tags on the list:
+      // detail stays fresh via the optimistic patch in `updateContact`, and
+      // `deleteContact` evicts its own `Contact/{id}` entry. Providing per-row
+      // tags here would imply refetch behavior the list doesn't need.
       providesTags: [{ type: 'ContactList', id: 'LIST' }],
     }),
 
@@ -90,7 +90,9 @@ export const contactsApi = baseApi.injectEndpoints({
 
     deleteContact: build.mutation<{ success: boolean; message: string; id: string }, string>({
       query: (id) => ({ url: `/contacts/${id}`, method: 'DELETE' }),
-      invalidatesTags: [{ type: 'ContactList', id: 'LIST' }],
+      // Evict the deleted contact's own detail cache as well as the list, so a
+      // later `getContact(deletedId)` refetches (404s) instead of serving a tombstone.
+      invalidatesTags: (_r, _e, id) => [{ type: 'ContactList', id: 'LIST' }, { type: 'Contact', id }],
     }),
 
     inviteTrustee: build.mutation<TrusteeInvite, string>({

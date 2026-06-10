@@ -50,7 +50,7 @@ export function PlanReadiness({ overview }: PlanReadinessProps) {
               className="flex items-center gap-2.5 px-3 py-1.5 text-sm"
             >
               {step.done ? (
-                <Check className="size-4 shrink-0 text-emerald-400" aria-hidden="true" />
+                <Check className="size-4 shrink-0 text-accent-bright" aria-hidden="true" />
               ) : (
                 <Circle className="size-4 shrink-0 text-faint" aria-hidden="true" />
               )}

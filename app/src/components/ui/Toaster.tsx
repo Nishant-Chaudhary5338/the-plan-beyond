@@ -14,7 +14,7 @@ export function Toaster() {
           actionButton: 'bg-accent text-on-accent',
           cancelButton: 'bg-white/10 text-content',
           error: 'text-danger',
-          success: 'text-emerald-400',
+          success: 'text-accent-bright',
         },
       }}
     />

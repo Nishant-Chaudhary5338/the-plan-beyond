@@ -32,6 +32,9 @@ export const peopleOverviewSchema = z.object({
   available_letters: z.array(z.string()).default([]),
 });
 
+/** Request envelope for `POST /trustees/invite` — validated at the service edge. */
+export const inviteTrusteeRequestSchema = z.object({ contact_id: z.string() });
+
 export const trusteeInviteSchema = z.object({
   id: z.string(),
   user_id: z.string(),

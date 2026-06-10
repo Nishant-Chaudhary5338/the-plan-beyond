@@ -8,6 +8,7 @@ import {
 import { makeSeedContacts } from '../mocks/seed';
 import { filterContacts, displayName, indexLetter } from '../utils/filterContacts';
 import type { ContactFilters } from '../model/filters';
+import { inviteTrusteeRequestSchema } from '../model/overview';
 import type { PeopleOverview, TrusteeInvite } from '../model/overview';
 import { TRUSTEE_LIMIT } from '../model/constants';
 import { genId } from '../../../lib/id';
@@ -108,8 +109,11 @@ export function createContactsService(seed: Contact[] = makeSeedContacts()) {
 
     /** Invite a contact to become a trustee (`POST /trustees/invite`). */
     inviteTrustee(raw: unknown): TrusteeInvite {
-      const contactId = (raw as { contact_id?: unknown })?.contact_id;
-      if (typeof contactId !== 'string') throw new ServiceError(400, 'Request validation failed');
+      // Validate the request envelope with Zod (same edge-validation pattern as
+      // `validateCreate`), instead of a hand-rolled typeof check.
+      const parsed = inviteTrusteeRequestSchema.safeParse(raw);
+      if (!parsed.success) throw new ServiceError(400, 'Request validation failed');
+      const contactId = parsed.data.contact_id;
       const contact = contacts.find((c) => c.id === contactId);
       if (!contact) throw new ServiceError(404, 'Contact not found');
       if (trusteeInvites.some((t) => t.contact_id === contactId && t.status !== 'declined')) {

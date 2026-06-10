@@ -38,7 +38,7 @@ export const ContactRow = memo(function ContactRow({
       className={cn(
         'group cursor-pointer border-t border-line transition-colors hover:bg-white/[0.04]',
         '[&>td]:align-middle',
-        selected && 'bg-emerald-500/[0.07]'
+        selected && 'bg-accent/[0.07]'
       )}
     >
       <td className="w-12 py-3 pl-4 pr-2" onClick={(e) => e.stopPropagation()}>

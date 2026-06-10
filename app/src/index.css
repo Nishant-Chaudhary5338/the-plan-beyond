@@ -46,6 +46,10 @@
   /* Semantic — accent / status */
   --color-accent: #2eb872;
   --color-accent-hover: #34c77b;
+  /* Brighter accent for "active/checked" foreground marks (checks, selected
+     filter text) where the base accent is too dark on the surface beneath.
+     Components use `text-accent-bright`, never a raw `emerald-*` scale class. */
+  --color-accent-bright: #3dd68c;
   --color-nav-active: #74d3cb;
   --color-identifier: #4ade80;
   --color-warning: #f2a93b;

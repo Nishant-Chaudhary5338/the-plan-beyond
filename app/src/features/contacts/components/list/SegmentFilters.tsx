@@ -70,7 +70,7 @@ function MenuList({
           className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-content hover:bg-white/8 focus-visible:bg-white/8 focus-visible:outline-none"
         >
           {o.label}
-          {o.selected ? <Check className="size-4 text-emerald-400" aria-hidden="true" /> : null}
+          {o.selected ? <Check className="size-4 text-accent-bright" aria-hidden="true" /> : null}
         </button>
       ))}
     </div>
@@ -94,12 +94,12 @@ const FilterPill = forwardRef<HTMLButtonElement, FilterPillProps>(function Filte
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm transition-colors',
         'ring-1 ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        active ? 'bg-accent/15 text-emerald-400 ring-accent/30' : 'bg-white/5 text-muted ring-line hover:bg-white/8',
+        active ? 'bg-accent/15 text-accent-bright ring-accent/30' : 'bg-white/5 text-muted ring-line hover:bg-white/8',
         className
       )}
     >
       {label}
-      {count ? <span className="rounded-full bg-accent/25 px-1.5 text-xs text-emerald-300">{count}</span> : null}
+      {count ? <span className="rounded-full bg-accent/25 px-1.5 text-xs text-accent-bright">{count}</span> : null}
       <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
     </button>
   );
@@ -108,28 +108,32 @@ const FilterPill = forwardRef<HTMLButtonElement, FilterPillProps>(function Filte
 /** The four segment filters from the live toolbar, wired to the Redux filter slice. */
 export function SegmentFilters() {
   const dispatch = useAppDispatch();
-  const filters = useAppSelector((s) => s.contactsUi.filters);
+  // Field-level selectors: this toolbar only depends on the four segment fields,
+  // so it stays put when search/page/sort/letter change (Immer keeps each field's
+  // reference stable), instead of re-rendering on every search keystroke.
+  const groups = useAppSelector((s) => s.contactsUi.filters.groups);
+  const beyondCircle = useAppSelector((s) => s.contactsUi.filters.beyondCircle);
+  const emergency = useAppSelector((s) => s.contactsUi.filters.emergency);
+  const relationship = useAppSelector((s) => s.contactsUi.filters.relationship);
 
   const toggleGroup = (g: string) => {
-    const next = filters.groups.includes(g)
-      ? filters.groups.filter((x) => x !== g)
-      : [...filters.groups, g];
+    const next = groups.includes(g) ? groups.filter((x) => x !== g) : [...groups, g];
     dispatch(setFilter({ key: 'groups', value: next }));
   };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Popover trigger={<FilterPill label="Groups" active={filters.groups.length > 0} count={filters.groups.length} />}>
+      <Popover trigger={<FilterPill label="Groups" active={groups.length > 0} count={groups.length} />}>
         <MenuList
           ariaLabel="Filter by group"
           multiselect
           options={GROUPS.map((g) => ({
             key: g,
-            selected: filters.groups.includes(g),
+            selected: groups.includes(g),
             onSelect: () => toggleGroup(g),
             label: (
               <span className="flex items-center gap-2">
-                <Checkbox checked={filters.groups.includes(g)} readOnly tabIndex={-1} aria-hidden="true" />
+                <Checkbox checked={groups.includes(g)} readOnly tabIndex={-1} aria-hidden="true" />
                 {g}
               </span>
             ),
@@ -137,26 +141,26 @@ export function SegmentFilters() {
         />
       </Popover>
 
-      <Popover trigger={<FilterPill label="Beyond Circle" active={filters.beyondCircle !== 'all'} />}>
+      <Popover trigger={<FilterPill label="Beyond Circle" active={beyondCircle !== 'all'} />}>
         <MenuList
           ariaLabel="Filter by Beyond Circle"
           options={TRI_OPTIONS.map((o) => ({
             key: o.value,
             label: o.label,
-            selected: filters.beyondCircle === o.value,
+            selected: beyondCircle === o.value,
             onSelect: () => dispatch(setFilter({ key: 'beyondCircle', value: o.value })),
           }))}
         />
       </Popover>
 
       <div className="flex items-center gap-1">
-        <Popover trigger={<FilterPill label="Emergency" active={filters.emergency !== 'all'} />}>
+        <Popover trigger={<FilterPill label="Emergency" active={emergency !== 'all'} />}>
           <MenuList
             ariaLabel="Filter by emergency contact"
             options={TRI_OPTIONS.map((o) => ({
               key: o.value,
               label: o.label,
-              selected: filters.emergency === o.value,
+              selected: emergency === o.value,
               onSelect: () => dispatch(setFilter({ key: 'emergency', value: o.value })),
             }))}
           />
@@ -169,20 +173,20 @@ export function SegmentFilters() {
         />
       </div>
 
-      <Popover trigger={<FilterPill label="Relationships" active={!!filters.relationship} />}>
+      <Popover trigger={<FilterPill label="Relationships" active={!!relationship} />}>
         <MenuList
           ariaLabel="Filter by relationship"
           options={[
             {
               key: '__any__',
               label: 'Any',
-              selected: !filters.relationship,
+              selected: !relationship,
               onSelect: () => dispatch(setFilter({ key: 'relationship', value: null })),
             },
             ...RELATIONSHIPS.map((r) => ({
               key: r,
               label: r,
-              selected: filters.relationship === r,
+              selected: relationship === r,
               onSelect: () => dispatch(setFilter({ key: 'relationship', value: r })),
             })),
           ]}

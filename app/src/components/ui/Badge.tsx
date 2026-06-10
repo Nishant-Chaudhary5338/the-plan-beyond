@@ -7,7 +7,7 @@ const badge = cva(
   {
     variants: {
       variant: {
-        accent: 'bg-accent/15 text-emerald-400 ring-1 ring-accent/30',
+        accent: 'bg-accent/15 text-accent-bright ring-1 ring-accent/30',
         // text-content (not text-muted): bg-white/8 lightens the surface beneath
         // the badge, so muted text drops under AA 4.5:1 on raised cards.
         neutral: 'bg-white/8 text-content ring-1 ring-line',

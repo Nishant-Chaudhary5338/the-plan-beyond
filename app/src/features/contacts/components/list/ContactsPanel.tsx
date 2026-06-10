@@ -24,7 +24,7 @@ import { displayName } from '../../utils/filterContacts';
 export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
   const dispatch = useAppDispatch();
   const selectedIds = useAppSelector((s) => s.contactsUi.selectedIds);
-  const { data, isLoading, isFetching, isError, refetch, filters } = useContactsQuery();
+  const { data, isLoading, isFetching, isError, refetch, filters, pageCount } = useContactsQuery();
   const { available_letters, contacts: { total: peopleTotal } } = useContactsStats();
   const { pendingDelete, setPendingDelete, confirmDelete, deleteMany, isDeleting } =
     useContactDeletion();
@@ -144,6 +144,7 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
             page={filters.page}
             pageSize={filters.pageSize}
             total={total}
+            pageCount={pageCount}
             onPageChange={(p) => dispatch(setPage(p))}
           />
         </div>
