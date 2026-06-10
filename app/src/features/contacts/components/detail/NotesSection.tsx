@@ -9,15 +9,14 @@ interface NotesSectionProps {
 
 export function NotesSection({ draft, patch }: NotesSectionProps) {
   return (
-    // Grow to fill the left column so the card ends level with the right column.
-    <SectionCard title="Notes" className="lg:flex lg:flex-1 lg:flex-col">
+    <SectionCard title="Notes">
       <Textarea
         value={draft.notes}
         onChange={(e) => patch({ notes: e.target.value })}
         placeholder="Add your notes here…"
         rows={6}
         aria-label="Notes"
-        className="lg:flex-1 lg:resize-none"
+        className="min-h-36"
       />
     </SectionCard>
   );

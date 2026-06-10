@@ -81,7 +81,7 @@ export default function ContactDetailPage() {
     <div className="mx-auto max-w-7xl py-8 pb-28">
       <ContactDetailHeader contact={draft} onDelete={() => setConfirmOpen(true)} />
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[360px_1fr]">
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[360px_1fr]">
         <div className="flex flex-col gap-6">
           <ContactInfoCard
             draft={draft}
