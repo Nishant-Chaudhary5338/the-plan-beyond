@@ -16,7 +16,7 @@ Two deliverables in one repo:
 | Requirement | Notes |
 |---|---|
 | **Node ≥ 20.19** (LTS 20 or 22 recommended) | `node -v` to check |
-| **pnpm 8** | Easiest: `corepack enable` — both projects pin `pnpm@8.15.6` via `packageManager`, so Corepack (bundled with Node) auto-selects the right version. Or install manually: `npm i -g pnpm@8`. |
+| **pnpm 10** | Easiest: `corepack enable` — both projects pin `pnpm@10.32.1` via `packageManager`, so Corepack (bundled with Node) auto-selects the right version. Or install manually: `npm i -g pnpm@10`. |
 | **Free ports** | App: **5173** (web), **3001** (mock API), **5174** (e2e). Indexer: **3002**. |
 | **Playwright browsers** (only for `pnpm e2e`) | `cd app && npx playwright install chromium` |
 
