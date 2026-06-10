@@ -26,7 +26,7 @@ export function KeyholdersCard({ keyholders }: { keyholders: PeopleOverview['key
         type="button"
         disabled
         title="Coming soon"
-        className="mt-3 flex w-full items-center justify-center gap-1 border-t border-line pt-3 text-sm text-muted transition-colors hover:text-content disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:text-muted"
+        className="mt-2.5 flex w-full items-center justify-center gap-1 border-t border-line pt-2.5 text-sm text-muted transition-colors hover:text-content disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:text-muted"
       >
         Manage keyholders <ChevronRight className="size-4" />
         <span className="sr-only">(coming soon)</span>

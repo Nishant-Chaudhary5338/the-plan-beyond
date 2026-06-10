@@ -23,7 +23,7 @@ export function PlanReadiness({ overview }: PlanReadinessProps) {
       trigger={
         <button
           type="button"
-          className="group mt-3 flex max-w-xs items-center gap-3 rounded-full bg-white/[0.05] px-3 py-1.5 text-left ring-1 ring-inset ring-line transition-colors hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group mt-2 flex max-w-xs items-center gap-3 rounded-full bg-white/[0.05] px-3 py-1.5 text-left ring-1 ring-inset ring-line transition-colors hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`${label}. View setup steps.`}
         >
           <span

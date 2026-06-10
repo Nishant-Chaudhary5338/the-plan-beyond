@@ -58,14 +58,14 @@ export function TrusteesCard({ trustees }: { trustees: PeopleOverview['trustees'
           </div>
         </div>
       </div>
-      <div className="mt-3 border-t border-line pt-3">
+      <div className="mt-2.5 border-t border-line pt-2.5">
         <StatusLine tone={status.tone} text={status.text} />
       </div>
       <button
         type="button"
         disabled
         title="Coming soon"
-        className="mt-3 flex w-full items-center justify-center gap-1 text-sm text-muted transition-colors hover:text-content disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:text-muted"
+        className="mt-2.5 flex w-full items-center justify-center gap-1 text-sm text-muted transition-colors hover:text-content disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:text-muted"
       >
         Manage trustees <ChevronRight className="size-4" />
         <span className="sr-only">(coming soon)</span>
