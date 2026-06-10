@@ -1,7 +1,7 @@
 import { Dialog } from './Dialog';
 import { Button } from './Button';
 
-interface ConfirmDialogProps {
+export interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;

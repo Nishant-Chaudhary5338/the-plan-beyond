@@ -11,6 +11,20 @@ export type TriState = 'all' | 'on' | 'off';
 /** 'all' shows every letter; otherwise a single A–Z initial. */
 export type LetterFilter = 'all' | string;
 
+/** Hard bound on page size so a crafted `?pageSize=` can't request the world. */
+export const MAX_PAGE_SIZE = 100;
+
+const SORT_KEYS = new Set<string>(SORT_OPTIONS.map((o) => o.value));
+const TRI_STATES = new Set<string>(['all', 'on', 'off']);
+
+function coerceSort(value: string | null): SortKey {
+  return value && SORT_KEYS.has(value) ? (value as SortKey) : 'name-asc';
+}
+
+function coerceTriState(value: string | null): TriState {
+  return value && TRI_STATES.has(value) ? (value as TriState) : 'all';
+}
+
 export interface ContactFilters {
   search: string;
   letter: LetterFilter;
@@ -68,21 +82,25 @@ export function encodeFilters(f: Partial<ContactFilters>): string {
   return qs ? `?${qs}` : '';
 }
 
-function toInt(value: string | null, fallback: number): number {
-  const n = Number(value ?? fallback);
-  return Number.isFinite(n) ? n : fallback;
+/** Parse an integer query param, truncating fractions and clamping to a range. */
+function toInt(value: string | null, fallback: number, min: number, max = Number.MAX_SAFE_INTEGER): number {
+  // `Number(null)` / `Number('')` are 0, not NaN — treat absent/empty as the fallback.
+  if (value === null || value.trim() === '') return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
 }
 
 export function decodeFilters(params: URLSearchParams): Partial<ContactFilters> {
   return {
     search: params.get('search') ?? '',
     letter: params.get('letter') ?? 'all',
-    sort: (params.get('sort') as SortKey | null) ?? 'name-asc',
+    sort: coerceSort(params.get('sort')),
     relationship: params.get('relationship') ?? null,
-    beyondCircle: (params.get('beyondCircle') as TriState | null) ?? 'all',
-    emergency: (params.get('emergency') as TriState | null) ?? 'all',
+    beyondCircle: coerceTriState(params.get('beyondCircle')),
+    emergency: coerceTriState(params.get('emergency')),
     groups: params.getAll('groups'),
-    page: toInt(params.get('page'), 1),
-    pageSize: toInt(params.get('pageSize'), 25),
+    page: toInt(params.get('page'), 1, 1),
+    pageSize: toInt(params.get('pageSize'), DEFAULT_FILTERS.pageSize, 1, MAX_PAGE_SIZE),
   };
 }

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Checkbox, Skeleton } from '@/components/ui';
 import { ContactRow } from './ContactRow';
 import type { Contact } from '../../model/types';
@@ -27,7 +28,11 @@ export function ContactsTable({
   onToggleAll,
   onDelete,
 }: ContactsTableProps) {
-  const allSelected = items.length > 0 && items.every((c) => selectedIds.includes(c.id));
+  // Set membership keeps select-all and per-row checks O(1) instead of O(n²).
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedOnPage = items.reduce((n, c) => (selectedSet.has(c.id) ? n + 1 : n), 0);
+  const allSelected = items.length > 0 && selectedOnPage === items.length;
+  const someSelected = selectedOnPage > 0 && !allSelected;
 
   return (
     <table className="w-full border-collapse text-left">
@@ -36,6 +41,7 @@ export function ContactsTable({
           <th scope="col" className="w-12 py-3 pl-4 pr-2 align-middle">
             <Checkbox
               checked={allSelected}
+              indeterminate={someSelected}
               onChange={(e) => onToggleAll(e.target.checked)}
               aria-label="Select all contacts on this page"
             />
@@ -66,7 +72,7 @@ export function ContactsTable({
               <ContactRow
                 key={contact.id}
                 contact={contact}
-                selected={selectedIds.includes(contact.id)}
+                selected={selectedSet.has(contact.id)}
                 onToggleSelect={onToggleSelect}
                 onDelete={onDelete}
               />

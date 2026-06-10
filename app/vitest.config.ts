@@ -33,6 +33,14 @@ export default defineConfig({
           functions: 80,
           lines: 80,
         },
+        // Framework-agnostic helpers (phone canonicalisation, debounce, deep-equal)
+        // are pure and dedup-critical, so they're gated too.
+        'src/lib/**': {
+          statements: 85,
+          branches: 80,
+          functions: 80,
+          lines: 85,
+        },
       },
     },
   },

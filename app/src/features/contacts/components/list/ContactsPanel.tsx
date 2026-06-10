@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Search, Users, SearchX, AlertTriangle } from 'lucide-react';
-import { Button, EmptyState, toast } from '@/components/ui';
+import { useCallback, useState } from 'react';
+import { Search, Users, SearchX, AlertTriangle, Trash2, X } from 'lucide-react';
+import { Button, EmptyState } from '@/components/ui';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useContactsQuery } from '../../hooks/useContactsQuery';
-import { useDeleteContactMutation } from '../../api/contactsApi';
+import { useContactDeletion } from '../../hooks/useContactDeletion';
 import {
   setFilter,
   setPage,
@@ -19,33 +19,30 @@ import { SortMenu } from './SortMenu';
 import { ContactsTable } from './ContactsTable';
 import { ContactsPagination } from './ContactsPagination';
 import { displayName } from '../../utils/filterContacts';
-import type { Contact } from '../../model/types';
 
 export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
   const dispatch = useAppDispatch();
   const selectedIds = useAppSelector((s) => s.contactsUi.selectedIds);
   const { data, isLoading, isFetching, isError, refetch, filters } = useContactsQuery();
-  const [deleteContact, { isLoading: isDeleting }] = useDeleteContactMutation();
-  const [pendingDelete, setPendingDelete] = useState<Contact | null>(null);
+  const { pendingDelete, setPendingDelete, confirmDelete, deleteMany, isDeleting } =
+    useContactDeletion();
+  const [bulkConfirm, setBulkConfirm] = useState(false);
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const hasQuery = filters.search.trim() !== '' || activeFilterCount(filters) > 0;
+  const selectedCount = selectedIds.length;
 
   const onToggleAll = (checked: boolean) =>
     dispatch(checked ? setSelectedMany(items.map((c) => c.id)) : clearSelected());
 
-  const confirmDelete = async () => {
-    if (!pendingDelete) return;
-    const name = displayName(pendingDelete);
-    try {
-      await deleteContact(pendingDelete.id).unwrap();
-      toast.success(`${name} removed`);
-    } catch {
-      toast.error(`Couldn't remove ${name}`);
-    } finally {
-      setPendingDelete(null);
-    }
+  // Stable handler so the memoised ContactRow doesn't re-render on every keystroke.
+  const onToggleSelect = useCallback((id: string) => dispatch(toggleSelected(id)), [dispatch]);
+
+  const confirmBulkDelete = async () => {
+    await deleteMany([...selectedIds]);
+    dispatch(clearSelected());
+    setBulkConfirm(false);
   };
 
   return (
@@ -77,6 +74,22 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
           />
         </div>
       </div>
+
+      {selectedCount > 0 ? (
+        <div className="flex items-center justify-between gap-3 border-t border-line bg-white/3 px-5 py-2.5">
+          <p className="text-sm text-content" aria-live="polite">
+            {selectedCount} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => dispatch(clearSelected())}>
+              <X className="size-4" /> Clear
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => setBulkConfirm(true)}>
+              <Trash2 className="size-4" /> Delete {selectedCount}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="scroll-themed min-h-0 flex-1 overflow-auto" aria-busy={isFetching}>
         {isError ? (
@@ -115,7 +128,7 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
             items={items}
             isLoading={isLoading}
             selectedIds={selectedIds}
-            onToggleSelect={(id) => dispatch(toggleSelected(id))}
+            onToggleSelect={onToggleSelect}
             onToggleAll={onToggleAll}
             onDelete={setPendingDelete}
           />
@@ -142,6 +155,17 @@ export function ContactsPanel({ onAdd }: { onAdd: () => void }) {
         destructive
         isLoading={isDeleting}
         onConfirm={confirmDelete}
+      />
+
+      <ConfirmDialog
+        open={bulkConfirm}
+        onOpenChange={(open) => !open && setBulkConfirm(false)}
+        title={`Remove ${selectedCount} contact${selectedCount === 1 ? '' : 's'}?`}
+        description={`The selected contact${selectedCount === 1 ? '' : 's'} will be removed from My People. This can't be undone.`}
+        confirmLabel={`Remove ${selectedCount}`}
+        destructive
+        isLoading={isDeleting}
+        onConfirm={confirmBulkDelete}
       />
     </section>
   );

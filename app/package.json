@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "The Plan Beyond — production-grade React 19 + Vite + TS + Tailwind v4 app. This build implements the \"My People\" feature: trusted contacts, trustees, keyholders, and the Beyond Circle.",
-  "packageManager": "pnpm@8.15.6",
+  "packageManager": "pnpm@10.32.1",
   "engines": {
     "node": ">=20.19"
   },

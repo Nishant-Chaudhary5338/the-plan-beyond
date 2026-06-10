@@ -45,4 +45,40 @@ describe('filterContacts', () => {
     expect(page1.total).toBe(all.length);
     expect(page1.items[0]?.id).not.toBe(page2.items[0]?.id);
   });
+
+  it('sorts by recency in both directions', () => {
+    const [a, b] = all;
+    if (!a || !b) throw new Error('seed too small');
+    const seeded = [
+      { ...a, id: 'old', createdAt: '2020-01-01T00:00:00.000Z' },
+      { ...b, id: 'new', createdAt: '2024-01-01T00:00:00.000Z' },
+    ];
+    expect(filterContacts(seeded, { sort: 'recent' }).items.map((c) => c.id)).toEqual(['new', 'old']);
+    expect(filterContacts(seeded, { sort: 'oldest' }).items.map((c) => c.id)).toEqual(['old', 'new']);
+  });
+
+  it('guards against a zero/negative pageSize instead of returning nothing', () => {
+    expect(filterContacts(all, { pageSize: 0 }).items.length).toBeGreaterThan(0);
+  });
+});
+
+describe('indexLetter', () => {
+  const withFirst = (firstName: string) => ({ ...all[0]!, firstName });
+
+  it('folds accented Latin initials to their base letter', () => {
+    expect(indexLetter(withFirst('Émile'))).toBe('E');
+    expect(indexLetter(withFirst('José'))).toBe('J');
+    expect(indexLetter(withFirst('Łukasz'))).toBe('L');
+  });
+
+  it('buckets digits and non-Latin scripts under #', () => {
+    expect(indexLetter(withFirst('123 Plumbing'))).toBe('#');
+    expect(indexLetter(withFirst('张伟'))).toBe('#');
+  });
+
+  it('always returns a single character', () => {
+    for (const name of ['ß-corp', 'Æsir', 'Ola']) {
+      expect(indexLetter(withFirst(name))).toHaveLength(1);
+    }
+  });
 });

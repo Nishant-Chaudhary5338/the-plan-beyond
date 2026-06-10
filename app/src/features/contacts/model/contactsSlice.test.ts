@@ -40,4 +40,20 @@ describe('contactsSlice', () => {
     const many = contactsReducer(contactsReducer(initial, toggleSelected('a')), toggleSelected('b'));
     expect(contactsReducer(many, clearSelected()).selectedIds).toEqual([]);
   });
+
+  it('clears the selection whenever the visible page changes', () => {
+    const selected = contactsReducer(initial, toggleSelected('a'));
+    expect(contactsReducer(selected, setPage(2)).selectedIds).toEqual([]);
+  });
+
+  it('clears the selection when a filter or search changes', () => {
+    const selected = contactsReducer(initial, toggleSelected('a'));
+    expect(contactsReducer(selected, setFilter({ key: 'search', value: 'x' })).selectedIds).toEqual([]);
+    expect(contactsReducer(selected, setFilter({ key: 'letter', value: 'B' })).selectedIds).toEqual([]);
+  });
+
+  it('clears the selection on resetFilters', () => {
+    const selected = contactsReducer(initial, toggleSelected('a'));
+    expect(contactsReducer(selected, resetFilters()).selectedIds).toEqual([]);
+  });
 });

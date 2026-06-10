@@ -41,13 +41,12 @@ export const contactsApi = baseApi.injectEndpoints({
     getContacts: build.query<ContactListResponse, Partial<ContactFilters>>({
       query: (filters) => `/contacts${encodeFilters(filters)}`,
       transformResponse: (raw) => contactListResponseSchema.parse(raw),
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.items.map((c) => ({ type: 'Contact' as const, id: c.id })),
-              { type: 'ContactList' as const, id: 'LIST' },
-            ]
-          : [{ type: 'ContactList' as const, id: 'LIST' }],
+      // Only the LIST tag — mutations invalidate `ContactList/LIST` to refetch the
+      // page. We intentionally don't provide per-item `Contact` tags here: no
+      // mutation invalidates an individual contact (detail stays fresh via the
+      // optimistic patch in `updateContact`), so per-row tags would imply
+      // refetch behavior that isn't wired.
+      providesTags: [{ type: 'ContactList', id: 'LIST' }],
     }),
 
     getContact: build.query<Contact, string>({
@@ -69,23 +68,24 @@ export const contactsApi = baseApi.injectEndpoints({
         body: toWireContact(contact),
       }),
       transformResponse: parseWire,
-      // Optimistic: detail view reflects the save immediately, rolls back on error.
+      // Optimistic: the detail view reflects the save immediately and rolls back
+      // on error. We replace the whole cached value (not Object.assign-merge, which
+      // would leave removed fields like a deleted phone behind) and patch the cache
+      // with the server's canonicalised response on success — so we deliberately do
+      // NOT invalidate the `Contact` tag here (that would refetch and defeat the
+      // optimistic update). Only the list tag is invalidated, for derived counts.
       async onQueryStarted({ id, contact }, { dispatch, queryFulfilled }) {
         const undo = dispatch(
-          contactsApi.util.updateQueryData('getContact', id, (draft) => {
-            Object.assign(draft, contact);
-          })
+          contactsApi.util.updateQueryData('getContact', id, () => contact)
         );
         try {
-          await queryFulfilled;
+          const { data: saved } = await queryFulfilled;
+          dispatch(contactsApi.util.updateQueryData('getContact', id, () => saved));
         } catch {
           undo.undo();
         }
       },
-      invalidatesTags: (_r, _e, { id }) => [
-        { type: 'Contact', id },
-        { type: 'ContactList', id: 'LIST' },
-      ],
+      invalidatesTags: [{ type: 'ContactList', id: 'LIST' }],
     }),
 
     deleteContact: build.mutation<{ success: boolean; message: string; id: string }, string>({

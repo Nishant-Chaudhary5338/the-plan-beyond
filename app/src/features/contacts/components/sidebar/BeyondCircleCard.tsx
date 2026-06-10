@@ -8,8 +8,11 @@ interface BeyondCircleCardProps {
   total: number;
 }
 
-/** Beyond Circle summary with a feature-enabled toggle (local preference). */
+/** Beyond Circle summary with a feature-enabled toggle. */
 export function BeyondCircleCard({ count, total }: BeyondCircleCardProps) {
+  // NOTE: this toggle is a local, non-persisted preference in this build.
+  // TODO(scope): reflect `notify_circle.enabled` from the /people overview and
+  // persist changes via a settings mutation once that endpoint exists.
   const [enabled, setEnabled] = useState(true);
   return (
     <SidebarCard title="Beyond Circle">

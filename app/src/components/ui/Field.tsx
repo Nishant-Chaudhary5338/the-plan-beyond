@@ -2,7 +2,7 @@ import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
-interface FieldProps {
+export interface FieldProps {
   label: string;
   /** Render the control; receives the generated id + aria props to spread. */
   children: (props: { id: string; 'aria-describedby'?: string; 'aria-invalid'?: true }) => ReactNode;

@@ -36,7 +36,8 @@ the toggle thumb, scale on press, scale+fade on dialogs, a shake on error banner
 
 WCAG 2.1 AA: semantic landmarks, labelled controls, a skip link, `aria-live` for the
 unsaved bar / pagination / toasts, table headers associated with cells, and AA contrast
-throughout. Verified by `@axe-core/playwright` (zero violations) and Lighthouse (100).
+throughout. Gated by `@axe-core/playwright` in e2e (zero violations); Lighthouse scores 100 in local
+audits but is not gated in CI.
 
 > Storybook was scoped out for this standalone hand-in (see [DECISIONS](DECISIONS.md));
 > primitive behaviour is documented through their co-located tests instead.

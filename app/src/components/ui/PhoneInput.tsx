@@ -17,7 +17,7 @@ export const DEFAULT_PHONE_VALUE: PhoneValue = {
   number: '',
 };
 
-interface PhoneInputProps {
+export interface PhoneInputProps {
   value: PhoneValue;
   onChange: (value: PhoneValue) => void;
   invalid?: boolean;

@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useRef, type KeyboardEvent } from 'react';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -13,6 +13,68 @@ const TRI_OPTIONS: { value: TriState; label: string }[] = [
   { value: 'on', label: 'On' },
   { value: 'off', label: 'Off' },
 ];
+
+interface MenuOpt {
+  key: string;
+  label: ReactNode;
+  selected: boolean;
+  onSelect: () => void;
+}
+
+/**
+ * An accessible menu of filter options. Exposes correct role/name/value to AT
+ * (`role="menu"` + `menuitemradio`/`menuitemcheckbox` with `aria-checked`) and
+ * supports roving Arrow/Home/End keyboard navigation per the WAI-ARIA menu
+ * pattern — fixing the prior plain-button list that announced no selection state.
+ */
+function MenuList({
+  ariaLabel,
+  multiselect = false,
+  options,
+}: {
+  ariaLabel: string;
+  multiselect?: boolean;
+  options: MenuOpt[];
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const role = multiselect ? 'menuitemcheckbox' : 'menuitemradio';
+  // The selected option (or the first) is the single Tab stop into the menu.
+  const tabbableIndex = Math.max(0, options.findIndex((o) => o.selected));
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const items = Array.from(ref.current?.querySelectorAll<HTMLButtonElement>(`[role="${role}"]`) ?? []);
+    if (items.length === 0) return;
+    e.preventDefault();
+    const cur = items.findIndex((el) => el === document.activeElement);
+    const last = items.length - 1;
+    const next =
+      e.key === 'Home' ? 0
+      : e.key === 'End' ? last
+      : e.key === 'ArrowDown' ? (cur < 0 ? 0 : (cur + 1) % items.length)
+      : cur < 0 ? last : (cur - 1 + items.length) % items.length;
+    items[next]?.focus();
+  };
+
+  return (
+    <div ref={ref} role="menu" aria-label={ariaLabel} onKeyDown={onKeyDown}>
+      {options.map((o, i) => (
+        <button
+          key={o.key}
+          type="button"
+          role={role}
+          aria-checked={o.selected}
+          tabIndex={i === tabbableIndex ? 0 : -1}
+          onClick={o.onSelect}
+          className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-content hover:bg-white/8 focus-visible:bg-white/8 focus-visible:outline-none"
+        >
+          {o.label}
+          {o.selected ? <Check className="size-4 text-emerald-400" aria-hidden="true" /> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 type FilterPillProps = { label: string; active: boolean; count?: number } & ComponentPropsWithoutRef<'button'>;
 
@@ -42,27 +104,6 @@ const FilterPill = forwardRef<HTMLButtonElement, FilterPillProps>(function Filte
   );
 });
 
-function MenuOption({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-content hover:bg-white/8"
-    >
-      {children}
-      {selected ? <Check className="size-4 text-emerald-400" /> : null}
-    </button>
-  );
-}
-
 /** The four segment filters from the live toolbar, wired to the Redux filter slice. */
 export function SegmentFilters() {
   const dispatch = useAppDispatch();
@@ -78,56 +119,65 @@ export function SegmentFilters() {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Popover trigger={<FilterPill label="Groups" active={filters.groups.length > 0} count={filters.groups.length} />}>
-        {GROUPS.map((g) => (
-          <MenuOption key={g} selected={filters.groups.includes(g)} onClick={() => toggleGroup(g)}>
-            <span className="flex items-center gap-2">
-              <Checkbox checked={filters.groups.includes(g)} readOnly tabIndex={-1} />
-              {g}
-            </span>
-          </MenuOption>
-        ))}
+        <MenuList
+          ariaLabel="Filter by group"
+          multiselect
+          options={GROUPS.map((g) => ({
+            key: g,
+            selected: filters.groups.includes(g),
+            onSelect: () => toggleGroup(g),
+            label: (
+              <span className="flex items-center gap-2">
+                <Checkbox checked={filters.groups.includes(g)} readOnly tabIndex={-1} aria-hidden="true" />
+                {g}
+              </span>
+            ),
+          }))}
+        />
       </Popover>
 
       <Popover trigger={<FilterPill label="Beyond Circle" active={filters.beyondCircle !== 'all'} />}>
-        {TRI_OPTIONS.map((o) => (
-          <MenuOption
-            key={o.value}
-            selected={filters.beyondCircle === o.value}
-            onClick={() => dispatch(setFilter({ key: 'beyondCircle', value: o.value }))}
-          >
-            {o.label}
-          </MenuOption>
-        ))}
+        <MenuList
+          ariaLabel="Filter by Beyond Circle"
+          options={TRI_OPTIONS.map((o) => ({
+            key: o.value,
+            label: o.label,
+            selected: filters.beyondCircle === o.value,
+            onSelect: () => dispatch(setFilter({ key: 'beyondCircle', value: o.value })),
+          }))}
+        />
       </Popover>
 
       <Popover trigger={<FilterPill label="Emergency" active={filters.emergency !== 'all'} />}>
-        {TRI_OPTIONS.map((o) => (
-          <MenuOption
-            key={o.value}
-            selected={filters.emergency === o.value}
-            onClick={() => dispatch(setFilter({ key: 'emergency', value: o.value }))}
-          >
-            {o.label}
-          </MenuOption>
-        ))}
+        <MenuList
+          ariaLabel="Filter by emergency contact"
+          options={TRI_OPTIONS.map((o) => ({
+            key: o.value,
+            label: o.label,
+            selected: filters.emergency === o.value,
+            onSelect: () => dispatch(setFilter({ key: 'emergency', value: o.value })),
+          }))}
+        />
       </Popover>
 
       <Popover trigger={<FilterPill label="Relationships" active={!!filters.relationship} />}>
-        <MenuOption
-          selected={!filters.relationship}
-          onClick={() => dispatch(setFilter({ key: 'relationship', value: null }))}
-        >
-          Any
-        </MenuOption>
-        {RELATIONSHIPS.map((r) => (
-          <MenuOption
-            key={r}
-            selected={filters.relationship === r}
-            onClick={() => dispatch(setFilter({ key: 'relationship', value: r }))}
-          >
-            {r}
-          </MenuOption>
-        ))}
+        <MenuList
+          ariaLabel="Filter by relationship"
+          options={[
+            {
+              key: '__any__',
+              label: 'Any',
+              selected: !filters.relationship,
+              onSelect: () => dispatch(setFilter({ key: 'relationship', value: null })),
+            },
+            ...RELATIONSHIPS.map((r) => ({
+              key: r,
+              label: r,
+              selected: filters.relationship === r,
+              onSelect: () => dispatch(setFilter({ key: 'relationship', value: r })),
+            })),
+          ]}
+        />
       </Popover>
     </div>
   );

@@ -2,7 +2,7 @@ import type { ComponentType, ReactNode } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   icon: ComponentType<LucideProps>;
   title: string;
   description?: string;

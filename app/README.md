@@ -7,7 +7,9 @@ Built as a **standalone, self-contained app**: clone, install, run. No monorepo,
 packages, no backend to stand up — a deterministic Express mock API ships in-repo and is shared,
 byte-for-byte, with the test suite.
 
-![React](https://img.shields.io/badge/React-19-149eca) ![Vite](https://img.shields.io/badge/Vite-7-646cff) ![TS](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Tailwind](https://img.shields.io/badge/Tailwind-v4-38bdf8) ![Tests](https://img.shields.io/badge/tests-90%20passing-success) ![Lighthouse](https://img.shields.io/badge/Lighthouse-100%2F100%2F100-success)
+![React](https://img.shields.io/badge/React-19-149eca) ![Vite](https://img.shields.io/badge/Vite-7-646cff) ![TS](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Tailwind](https://img.shields.io/badge/Tailwind-v4-38bdf8) ![Tests](https://img.shields.io/badge/tests-139%20passing-success) ![Lighthouse](https://img.shields.io/badge/Lighthouse-100%20(local%20audit)-success)
+
+> The Lighthouse badge reflects a local audit (Accessibility / Best Practices / SEO) of `pnpm preview`. It is **not** gated in CI — the CI gate is `lint → typecheck → test:cov → build` plus Playwright + axe for accessibility.
 
 ---
 
@@ -92,7 +94,7 @@ can't silently regress. A Husky `pre-commit` hook runs `lint-staged` (ESLint + P
   + top bar; non-People routes render a branded "Work in progress" placeholder; a top-level error
   boundary keeps a render crash from taking down the chrome.
 
-Fully responsive · **WCAG 2.1 AA** (axe-clean) · **Lighthouse 100** for Accessibility / Best Practices / SEO.
+Fully responsive · **WCAG 2.1 AA** (axe-clean, gated in e2e) · **Lighthouse 100** for Accessibility / Best Practices / SEO in local audits (not gated in CI).
 
 ---
 
@@ -186,7 +188,8 @@ src/
     hooks/                  useContactsQuery, useContactDraft, useContactsStats
     pages/                  ContactsListPage, ContactDetailPage
 
-  lib/                      framework-agnostic helpers: cn, phone, countries, format, id, useDebouncedValue
+  lib/                      framework-agnostic helpers: cn, phone (E.164 canonicalisation), countries,
+                            format, id, deepEqual, validators, useDebouncedValue, reportError (crash seam)
   test/                     setup, MSW handlers/server, renderWithProviders
 
 e2e/                        Playwright specs (contacts, add-contact, a11y)
@@ -205,8 +208,9 @@ This is the part to swap when wiring a real backend; it's deliberately one folde
 - **`app/baseApi.ts`** — the single `createApi`. Owns the base URL, `fetchBaseQuery`, and cache tags.
   Resolves the base URL from `VITE_API_BASE_URL`, falling back to same-origin `/api`.
 - **`features/contacts/api/contactsApi.ts`** — `baseApi.injectEndpoints({...})`. Defines the
-  contacts endpoints and exports the generated hooks. **Adding a feature touches zero shared files** —
-  it injects its own endpoints and is registered in the store by a side-effect import.
+  contacts endpoints and exports the generated hooks. **Adding a feature touches one line in
+  `app/store.ts`** — a single side-effect import that registers its injected endpoints; the store
+  config (reducers, middleware) stays untouched.
 - **`model/types.ts`** — Zod schemas + inferred types for the clean **internal** model.
 - **`model/wire.ts`** — the anti-corruption layer: `fromWire*` / `toWire*` mappers between the
   snake_case live-API shapes and the internal camelCase model. Mapping happens **only** at the boundary.
@@ -242,7 +246,7 @@ never raw hex. Primitives in `components/ui` wrap Radix where behavior/accessibi
 
 ## Testing
 
-A standard pyramid — **90 unit/integration tests across 20 files**, plus 3 Playwright e2e specs:
+A standard pyramid — **139 unit/integration tests across 24 files**, plus 3 Playwright e2e specs:
 
 - **Unit** — pure logic: filter codec, `filterContacts`, `wire` mappers, the slice, `vcfParser`.
 - **Integration** — components against the **real** service via MSW (`renderWithProviders` wires
@@ -257,9 +261,10 @@ pnpm test:cov        # + coverage (enforced thresholds)
 pnpm e2e             # end-to-end + accessibility
 ```
 
-**Coverage gate.** `vitest.config.ts` enforces `src/features/contacts/**` ≥ **80%**
-statements/functions/lines and ≥ 75% branches; `pnpm ci` runs `test:cov`, so it's enforced on every
-run. Overall coverage is ~93% statements. See [docs/TESTING.md](docs/TESTING.md).
+**Coverage gate.** The enforced threshold is **scoped** to `src/features/contacts/**` ≥ **80%**
+statements/functions/lines and ≥ **75%** branches (`vitest.config.ts`); `pnpm ci` runs `test:cov`, so
+it's enforced on every run. That scoped gate is the only hard floor — overall coverage runs ~92% but
+is **not** itself gated. See [docs/TESTING.md](docs/TESTING.md).
 
 > Tests earn their keep: the integration suite caught a real bug where the segment-filter popovers
 > never opened (a trigger component dropped Radix's injected `onClick`/`ref`).
@@ -268,7 +273,8 @@ run. Overall coverage is ~93% statements. See [docs/TESTING.md](docs/TESTING.md)
 
 ## Accessibility
 
-WCAG 2.1 AA, verified by axe in e2e and Lighthouse (100). Throughout: focus-visible rings, focus
+WCAG 2.1 AA, gated by axe in e2e (zero violations) and spot-checked with Lighthouse (100 in local
+audits, not gated in CI). Throughout: focus-visible rings, focus
 trapping + scroll lock in dialogs (Radix), `aria-current` on the active route, labelled controls
 (`Field` wires `htmlFor`/`aria-describedby`), `aria-live` on the pagination range and toasts, a
 skip-to-content link, and keyboard support on every interactive element.

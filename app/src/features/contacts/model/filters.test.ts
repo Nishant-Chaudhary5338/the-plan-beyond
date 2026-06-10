@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_FILTERS,
+  MAX_PAGE_SIZE,
   activeFilterCount,
   encodeFilters,
   decodeFilters,
@@ -45,6 +46,34 @@ describe('filter codec', () => {
 
   it('drops the leading "?" only when params exist', () => {
     expect(encodeFilters({})).toBe('');
+  });
+
+  it('clamps pageSize to a sane range and truncates fractions', () => {
+    expect(decode('?pageSize=0').pageSize).toBe(1);
+    expect(decode('?pageSize=999999').pageSize).toBe(MAX_PAGE_SIZE);
+    expect(decode('?pageSize=-5').pageSize).toBe(1);
+    expect(decode('?pageSize=10.7').pageSize).toBe(10);
+  });
+
+  it('floors page to 1 and truncates fractional pages', () => {
+    expect(decode('?page=0').page).toBe(1);
+    expect(decode('?page=-3').page).toBe(1);
+    expect(decode('?page=2.9').page).toBe(2);
+  });
+
+  it('rejects out-of-range sort and tri-state values', () => {
+    expect(decode('?sort=DROP%20TABLE').sort).toBe('name-asc');
+    expect(decode('?beyondCircle=maybe').beyondCircle).toBe('all');
+    expect(decode('?emergency=yes').emergency).toBe('all');
+  });
+
+  it('decode∘encode is the identity on any valid filter set', () => {
+    const cases: ContactFilters[] = [
+      DEFAULT_FILTERS,
+      { ...DEFAULT_FILTERS, search: 'q', letter: 'Z', sort: 'oldest', page: 4, pageSize: 100 },
+      { ...DEFAULT_FILTERS, groups: ['Work'], relationship: 'Friend', beyondCircle: 'off', emergency: 'on' },
+    ];
+    for (const f of cases) expect(decode(encodeFilters(f))).toEqual(f);
   });
 });
 

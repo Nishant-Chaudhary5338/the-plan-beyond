@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Contact, CreateContactInput, Phone } from './types';
 import { TITLES } from './types';
 import { genId } from '../../../lib/id';
+import { canonicalizePhone } from '../../../lib/phone';
 
 /**
  * Wire shapes for the live contact create/detail API (snake_case). The app keeps
@@ -62,17 +63,22 @@ export type WireContact = z.infer<typeof wireContactSchema>;
 
 /** Real wire contact → internal Contact. */
 export function fromWireContact(w: WireContact): Contact {
-  const phones: Phone[] = w.phone_list.map((p) => ({
-    id: p.id ?? genId('phone'),
-    countryCode: p.country_code,
-    number: p.phone_number,
-    e164: p.e164 ?? p.full_number ?? `${p.country_code}${p.phone_number}`,
-    isIdentifier: p.is_primary,
-    phoneType: p.phone_type ?? undefined,
-    label: p.label,
-    isVerified: p.is_verified,
-    supportsWhatsApp: p.supports_whatsapp,
-  }));
+  const phones: Phone[] = w.phone_list.map((p) => {
+    const canonical = canonicalizePhone(p.country_code, p.phone_number);
+    return {
+      id: p.id ?? genId('phone'),
+      countryCode: canonical?.countryCode ?? p.country_code,
+      number: canonical?.nationalNumber ?? p.phone_number,
+      // Prefer a canonical E.164; fall back to wire-provided forms so a real
+      // backend's unusual-but-present number is never discarded.
+      e164: canonical?.e164 ?? p.e164 ?? p.full_number ?? `${p.country_code}${p.phone_number}`,
+      isIdentifier: p.is_primary,
+      phoneType: p.phone_type ?? undefined,
+      label: p.label,
+      isVerified: p.is_verified,
+      supportsWhatsApp: p.supports_whatsapp,
+    };
+  });
   // The UI's title is a fixed dropdown; non-preset titles aren't supported.
   const title = TITLES.find((t) => t === w.title);
   // Single-relationship by product decision (the detail form is single-select).

@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Check, X, Plus, Star, Trash2 } from 'lucide-react';
 import { Badge, Button, IconButton, Input, PhoneInput, DEFAULT_PHONE_VALUE, type PhoneValue } from '@/components/ui';
 import { SectionCard } from './SectionCard';
-import { formatPhoneDisplay, isValidPhone } from '@/lib/phone';
+import { formatPhoneDisplay, canonicalizePhone } from '@/lib/phone';
+import { isEmail } from '@/lib/validators';
+import type { CountryCode } from 'libphonenumber-js';
 import type { Contact, Phone } from '../../model/types';
 
 interface ContactInfoCardProps {
@@ -13,8 +15,6 @@ interface ContactInfoCardProps {
   addEmail: (email: string) => void;
   removeEmail: (id: string) => void;
 }
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ContactInfoCard({
   draft,
@@ -28,19 +28,25 @@ export function ContactInfoCard({
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
 
   const confirmPhone = () => {
-    if (!phoneDraft || !isValidPhone(phoneDraft.dialCode, phoneDraft.number)) return;
+    if (!phoneDraft) return;
+    const canonical = canonicalizePhone(
+      phoneDraft.dialCode,
+      phoneDraft.number,
+      phoneDraft.iso2 as CountryCode,
+    );
+    if (!canonical) return;
     addPhone({
-      countryCode: phoneDraft.dialCode,
-      number: phoneDraft.number,
-      e164: `${phoneDraft.dialCode}${phoneDraft.number}`,
+      countryCode: canonical.countryCode,
+      number: canonical.nationalNumber,
+      e164: canonical.e164,
       isIdentifier: draft.phones.length === 0,
     });
     setPhoneDraft(null);
   };
 
   const confirmEmail = () => {
-    if (!emailDraft || !EMAIL_RE.test(emailDraft)) return;
-    addEmail(emailDraft);
+    if (!emailDraft || !isEmail(emailDraft)) return;
+    addEmail(emailDraft.trim());
     setEmailDraft(null);
   };
 

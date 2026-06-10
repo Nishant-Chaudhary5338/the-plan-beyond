@@ -9,7 +9,7 @@ export function TooltipProvider({ children }: { children: ReactNode }) {
   );
 }
 
-interface TooltipProps {
+export interface TooltipProps {
   content: ReactNode;
   children: ReactNode;
   side?: RadixTooltip.TooltipContentProps['side'];

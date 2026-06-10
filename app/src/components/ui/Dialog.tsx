@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { IconButton } from './IconButton';
 
-interface DialogProps {
+export interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;

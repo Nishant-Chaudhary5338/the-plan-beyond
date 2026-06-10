@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -13,7 +14,15 @@ interface ContactRowProps {
   onDelete: (contact: Contact) => void;
 }
 
-export function ContactRow({ contact, selected, onToggleSelect, onDelete }: ContactRowProps) {
+// Memoised: the panel re-renders on every search keystroke, but rows only need
+// to re-render when their own contact/selected state changes. Effective because
+// the panel passes stable (useCallback) handlers.
+export const ContactRow = memo(function ContactRow({
+  contact,
+  selected,
+  onToggleSelect,
+  onDelete,
+}: ContactRowProps) {
   const navigate = useNavigate();
   const name = displayName(contact);
   const primary = contact.phones.find((p) => p.isIdentifier) ?? contact.phones[0];
@@ -22,6 +31,9 @@ export function ContactRow({ contact, selected, onToggleSelect, onDelete }: Cont
 
   return (
     <tr
+      // Whole-row click is a mouse-only enhancement; keyboard users navigate via
+      // the focusable name button below, and every action (select, delete) is a
+      // real focusable control — so no interaction is keyboard-unreachable.
       onClick={open}
       className={cn(
         'group cursor-pointer border-t border-line transition-colors hover:bg-white/[0.04]',
@@ -90,4 +102,4 @@ export function ContactRow({ contact, selected, onToggleSelect, onDelete }: Cont
       </td>
     </tr>
   );
-}
+});

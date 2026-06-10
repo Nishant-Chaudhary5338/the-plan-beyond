@@ -153,7 +153,7 @@ For interactive primitives — Dialog, Popover, Select, Switch, Tooltip — I us
 
 ## 9. Accessibility — treated as a build gate
 
-Accessibility isn't a pass at the end here; it's wired into e2e. The Playwright suite runs **axe** against the real pages, so a WCAG violation fails CI the same way a broken test does. On top of the automated checks: a skip link, semantic landmarks, labelled controls, focus management inherited from Radix, and visible focus states. The result is axe-clean WCAG 2.1 AA and Lighthouse 100 for Accessibility — and, more importantly, a guardrail that catches regressions instead of trusting a one-time audit.
+Accessibility isn't a pass at the end here; it's wired into e2e. The Playwright suite runs **axe** against the real pages, so a WCAG violation fails CI the same way a broken test does. On top of the automated checks: a skip link, semantic landmarks, labelled controls, focus management inherited from Radix, and visible focus states. The result is axe-clean WCAG 2.1 AA — gated in CI — plus Lighthouse 100 for Accessibility in local audits (the axe gate, not Lighthouse, is what catches regressions; Lighthouse is a spot-check, not a CI gate). The point is a guardrail that catches regressions instead of trusting a one-time audit.
 
 ---
 

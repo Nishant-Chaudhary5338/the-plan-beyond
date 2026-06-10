@@ -9,29 +9,42 @@ export interface SelectOption {
   label: string;
 }
 
-interface SelectProps {
+export interface SelectProps {
   value?: string;
   onValueChange?: (value: string) => void;
   options: SelectOption[];
   placeholder?: string;
   id?: string;
+  invalid?: boolean;
+  'aria-label'?: string;
   'aria-describedby'?: string;
-  'aria-invalid'?: true;
+  'aria-invalid'?: boolean;
   className?: string;
 }
 
 /** Styled, keyboard-accessible single-select (Title, Sort, etc.). */
 export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select(
-  { value, onValueChange, options, placeholder = 'Select…', className, ...aria },
+  {
+    value,
+    onValueChange,
+    options,
+    placeholder = 'Select…',
+    className,
+    invalid,
+    'aria-invalid': ariaInvalid,
+    ...aria
+  },
   ref
 ) {
   return (
     <RadixSelect.Root value={value} onValueChange={onValueChange}>
       <RadixSelect.Trigger
         ref={ref}
+        aria-invalid={invalid || ariaInvalid || undefined}
         {...aria}
         className={cn(
           'flex h-11 w-full items-center justify-between gap-2 rounded-[var(--radius-field)] bg-white/5 px-3.5 text-sm text-content ring-1 ring-inset ring-line transition-colors hover:bg-white/[0.07] focus:outline-none focus:ring-2 focus:ring-ring data-[placeholder]:text-muted',
+          invalid && 'ring-danger focus:ring-danger',
           className
         )}
       >

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Send, Trash2 } from 'lucide-react';
-import { Avatar, Button, IconButton } from '@/components/ui';
+import { Avatar, Button, IconButton, toast } from '@/components/ui';
 import { formatPhoneDisplay } from '@/lib/phone';
 import { formatDate } from '@/lib/format';
 import { displayName } from '../../utils/filterContacts';
@@ -36,7 +36,12 @@ export function ContactDetailHeader({ contact, onDelete }: ContactDetailHeaderPr
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="subtle">
+          {/* TODO(scope): wire to the real product-invite endpoint when it exists.
+              Until then this is honest about being out of scope rather than a dead button. */}
+          <Button
+            variant="subtle"
+            onClick={() => toast.info('Product invites land in a later milestone — this build ships “My People”.')}
+          >
             <Send className="size-4" />
             Invite to The Plan Beyond
           </Button>

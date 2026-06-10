@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import * as RadixPopover from '@radix-ui/react-popover';
 import { cn } from '@/lib/cn';
 
-interface PopoverProps {
+export interface PopoverProps {
   trigger: ReactNode;
   children: ReactNode;
   open?: boolean;

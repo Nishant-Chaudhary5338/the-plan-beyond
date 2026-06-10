@@ -1,20 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import type { LucideProps } from 'lucide-react';
-import { ChevronRight, FileText, Inbox, Mail, Search } from 'lucide-react';
-import { Dialog, Button, Spinner, FormErrorBanner, Avatar, toast } from '@/components/ui';
-import {
-  useImportVcfMutation,
-  useImportGoogleMutation,
-  useGetContactsQuery,
-  useDeleteContactMutation,
-} from '../../api/contactsApi';
+import { ChevronRight, FileText, Inbox, Mail } from 'lucide-react';
+import { Dialog, Button, Spinner, FormErrorBanner, toast } from '@/components/ui';
+import { useImportVcfMutation, useImportGoogleMutation } from '../../api/contactsApi';
 import { parseVcf, type ParsedContact } from '../../utils/vcfParser';
 import { GOOGLE_MOCK_CONTACTS } from '../../mocks/googleMockContacts';
-import { displayName } from '../../utils/filterContacts';
-import { formatPhoneDisplay } from '@/lib/phone';
-import type { Contact } from '../../model/types';
 import { ImportReview } from './ImportReview';
+import { ImportCurrentSection } from './ImportCurrentSection';
 
 type Source = 'none' | 'google' | 'vcf';
 
@@ -72,13 +65,9 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
   const [parsed, setParsed] = useState<ParsedContact[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState('');
-  const [currentSearch, setCurrentSearch] = useState('');
 
   const [importVcf, { isLoading: vcfLoading }] = useImportVcfMutation();
   const [importGoogle, { isLoading: googleLoading }] = useImportGoogleMutation();
-  const { data: currentData } = useGetContactsQuery({ pageSize: 100 }, { skip: !open });
-  const [deleteContact, { isLoading: isDeleting }] = useDeleteContactMutation();
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const isSaving = vcfLoading || googleLoading;
 
   useEffect(() => {
@@ -88,24 +77,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
     setSelected(new Set());
     setError('');
     setConnecting(false);
-    setCurrentSearch('');
   }, [open]);
-
-  const current = useMemo(() => currentData?.items ?? [], [currentData]);
-  const filteredCurrent = useMemo(() => {
-    const q = currentSearch.trim().toLowerCase();
-    if (!q) return current;
-    return current.filter((c) => {
-      const hay = [
-        displayName(c),
-        ...c.phones.map((p) => p.e164),
-        ...c.emails.map((e) => e.email),
-      ]
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [current, currentSearch]);
 
   const loadParsed = (contacts: ParsedContact[]) => {
     setParsed(contacts);
@@ -122,7 +94,14 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
-    const contacts = parseVcf(await readText(file));
+    let text: string;
+    try {
+      text = await readText(file);
+    } catch {
+      setError("Couldn't read that file. Please try again with a valid .vcf file.");
+      return;
+    }
+    const contacts = parseVcf(text);
     if (contacts.length === 0) {
       setError('No contacts with a valid phone number were found in that file.');
       return;
@@ -151,18 +130,6 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
 
   const toggleAll = (checked: boolean) =>
     setSelected(checked ? new Set(parsed.map((_, i) => i)) : new Set());
-
-  const onDelete = async (c: Contact) => {
-    setDeletingId(c.id);
-    try {
-      await deleteContact(c.id).unwrap();
-      toast.success(`${displayName(c)} removed`);
-    } catch {
-      toast.error("Couldn't remove contact");
-    } finally {
-      setDeletingId(null);
-    }
-  };
 
   const save = async () => {
     const chosen = parsed
@@ -242,55 +209,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           )}
         </Section>
 
-        <Section label={`Current (${current.length})`}>
-          <div className="relative mb-3">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              value={currentSearch}
-              onChange={(e) => setCurrentSearch(e.target.value)}
-              placeholder="Search by name, phone, or email"
-              aria-label="Search current contacts"
-              className="h-10 w-full rounded-xl bg-white/5 pl-9 pr-3 text-sm text-content placeholder:text-muted ring-1 ring-inset ring-line focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          {filteredCurrent.length === 0 ? (
-            <p className="py-6 text-center text-sm text-faint">No contacts match your search.</p>
-          ) : (
-            <ul className="scroll-themed max-h-64 space-y-1 overflow-y-auto">
-              {filteredCurrent.map((c) => {
-                const name = displayName(c);
-                const primary = c.phones.find((p) => p.isIdentifier) ?? c.phones[0];
-                return (
-                  <li
-                    key={c.id}
-                    className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5"
-                  >
-                    <Avatar name={name} imageUrl={c.avatarUrl} size="sm" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm text-content">{name}</span>
-                      <span className="block truncate text-xs text-faint">
-                        {primary ? formatPhoneDisplay(primary.e164) : 'No number'}
-                      </span>
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(c)}
-                      isLoading={isDeleting && deletingId === c.id}
-                      disabled={isDeleting}
-                    >
-                      Delete
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Section>
+        <ImportCurrentSection open={open} />
       </div>
     </Dialog>
   );

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import { screen, waitFor } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders } from '@/test/renderWithProviders';
+import { mswServer } from '@/test/msw/server';
 import ContactDetailPage from './ContactDetailPage';
 
 function setup(id = 'seed-001') {
@@ -48,6 +50,28 @@ describe('ContactDetailPage (integration)', () => {
       expect(screen.queryByRole('region', { name: /unsaved changes/i })).not.toBeInTheDocument()
     );
     expect(screen.getByLabelText(/date of birth/i)).toHaveValue('1990-05-20');
+  });
+
+  it('rolls back the optimistic edit and keeps the unsaved bar when the save fails', async () => {
+    // Force the PUT to fail so the optimistic update must roll back.
+    mswServer.use(
+      http.put('/api/contacts/:id', () =>
+        HttpResponse.json({ message: 'Server exploded' }, { status: 500 })
+      )
+    );
+    const { user } = setup();
+    await screen.findByRole('heading', { name: 'Amit Bansal' });
+
+    await user.type(screen.getByLabelText(/middle name/i), 'Kumar');
+    expect(screen.getByLabelText(/middle name/i)).toHaveValue('Kumar');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // The unsaved bar must remain (save failed) and the edit must persist locally
+    // for the user to retry — the optimistic cache patch is rolled back underneath.
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: /unsaved changes/i })).toBeInTheDocument()
+    );
+    expect(screen.getByLabelText(/middle name/i)).toHaveValue('Kumar');
   });
 
   it('discards edits and reverts the field', async () => {

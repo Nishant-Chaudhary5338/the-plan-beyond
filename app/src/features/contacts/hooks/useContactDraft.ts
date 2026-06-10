@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGetContactQuery, useUpdateContactMutation } from '../api/contactsApi';
 import type { Address, Contact, Phone, Professional } from '../model/types';
 import { genId } from '@/lib/id';
+import { deepEqual } from '@/lib/deepEqual';
 
 const uid = (): string => genId('tmp');
 
@@ -14,12 +15,21 @@ export function useContactDraft(id: string) {
   const [updateContact, { isLoading: isSaving }] = useUpdateContactMutation();
   const [draft, setDraft] = useState<Contact | null>(null);
 
+  // The draft is the user's working copy and is owned locally. Initialise it
+  // from the server only on first load or when navigating to a *different*
+  // contact — NOT on every cache change, so a background refetch or an
+  // optimistic-update rollback can't silently wipe in-progress edits. After a
+  // successful save we reconcile the draft explicitly (see `save`).
+  const loadedId = useRef<string | null>(null);
   useEffect(() => {
-    if (contact) setDraft(contact);
+    if (contact && loadedId.current !== contact.id) {
+      loadedId.current = contact.id;
+      setDraft(contact);
+    }
   }, [contact]);
 
   const isDirty = useMemo(
-    () => Boolean(contact && draft) && JSON.stringify(contact) !== JSON.stringify(draft),
+    () => Boolean(contact && draft) && !deepEqual(contact, draft),
     [contact, draft]
   );
 
@@ -61,7 +71,10 @@ export function useContactDraft(id: string) {
 
   const save = useCallback(async () => {
     if (!draft) return;
-    await updateContact({ id, contact: draft }).unwrap();
+    // Reconcile the draft with the server's canonicalised response on success;
+    // on failure this throws and the draft keeps the user's edits for a retry.
+    const saved = await updateContact({ id, contact: draft }).unwrap();
+    setDraft(saved);
   }, [draft, id, updateContact]);
 
   return {

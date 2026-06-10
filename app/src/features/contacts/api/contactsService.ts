@@ -1,4 +1,3 @@
-import { isValidPhoneNumber } from 'libphonenumber-js';
 import {
   contactSchema,
   createContactSchema,
@@ -12,6 +11,7 @@ import type { ContactFilters } from '../model/filters';
 import type { PeopleOverview, TrusteeInvite } from '../model/overview';
 import { TRUSTEE_LIMIT } from '../model/constants';
 import { genId } from '../../../lib/id';
+import { canonicalizePhone } from '../../../lib/phone';
 
 const SELF_USER_ID = 'bd749670-ed9d-48ef-bba5-6ac6608074e4';
 
@@ -27,13 +27,20 @@ export class ServiceError extends Error {
 }
 
 function buildContact(input: CreateContactInput): Contact {
+  // validateCreate already canonicalised the number; recompute defensively.
+  const canonical = canonicalizePhone(input.countryCode, input.phone);
+  const phone = canonical ?? {
+    countryCode: input.countryCode,
+    nationalNumber: input.phone,
+    e164: `${input.countryCode}${input.phone}`,
+  };
   const draft: Contact = {
     id: genId('contact'),
     firstName: input.firstName,
     middleName: '',
     lastName: input.lastName ?? '',
     phones: [
-      { id: genId(), countryCode: input.countryCode, number: input.phone, e164: `${input.countryCode}${input.phone}`, isIdentifier: true },
+      { id: genId('phone'), countryCode: phone.countryCode, number: phone.nationalNumber, e164: phone.e164, isIdentifier: true },
     ],
     emails: [],
     address: { flat: '', street: '', city: '', state: '', postalCode: '', country: '' },
@@ -59,12 +66,14 @@ export function createContactsService(seed: Contact[] = makeSeedContacts()) {
     const parsed = createContactSchema.safeParse(raw);
     if (!parsed.success) throw new ServiceError(400, 'Request validation failed');
     const input = parsed.data;
-    const e164 = `${input.countryCode}${input.phone}`;
-    if (!isValidPhoneNumber(e164)) throw new ServiceError(400, 'Request validation failed');
-    if (contacts.some((c) => c.phones.some((p) => p.e164 === e164))) {
+    const canonical = canonicalizePhone(input.countryCode, input.phone);
+    if (!canonical) throw new ServiceError(400, 'Request validation failed');
+    // Dedup on the canonical E.164 so the same number entered with/without a
+    // trunk prefix or different separators is recognised as a duplicate.
+    if (contacts.some((c) => c.phones.some((p) => p.e164 === canonical.e164))) {
       throw new ServiceError(409, 'A contact with this number already exists');
     }
-    return input;
+    return { ...input, countryCode: canonical.countryCode, phone: canonical.nationalNumber };
   }
 
   return {
@@ -140,8 +149,21 @@ export function createContactsService(seed: Contact[] = makeSeedContacts()) {
       const idx = contacts.findIndex((c) => c.id === id);
       if (idx < 0) throw new ServiceError(404, 'Contact not found');
       const merged = contactSchema.parse({ ...contacts[idx], ...patch, id });
-      contacts = contacts.map((c, i) => (i === idx ? merged : c));
-      return merged;
+      // Re-derive canonical E.164 for every phone so updates get the same
+      // normalisation and dedup as creates (create/update validation parity).
+      const phones = merged.phones.map((p) => {
+        const c = canonicalizePhone(p.countryCode, p.number);
+        return c ? { ...p, countryCode: c.countryCode, number: c.nationalNumber, e164: c.e164 } : p;
+      });
+      const others = contacts.filter((c) => c.id !== id);
+      for (const p of phones) {
+        if (others.some((c) => c.phones.some((q) => q.e164 === p.e164))) {
+          throw new ServiceError(409, 'A contact with this number already exists');
+        }
+      }
+      const next: Contact = { ...merged, phones };
+      contacts = contacts.map((c, i) => (i === idx ? next : c));
+      return next;
     },
 
     remove(id: string): { success: true; message: string; id: string } {

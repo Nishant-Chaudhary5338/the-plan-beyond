@@ -2,15 +2,23 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui';
 
-interface Props {
+export interface ErrorBoundaryProps {
   children: ReactNode;
+  /**
+   * Reporting seam — wire this to Sentry/Datadog/etc. in production. Kept as a
+   * prop (not a hard dependency) so the design system stays vendor-agnostic.
+   */
+  onError?: (error: Error, info: ErrorInfo) => void;
+  /** Optional custom fallback; defaults to the branded recovery panel. */
+  fallback?: (reset: () => void) => ReactNode;
 }
+
 interface State {
   error: Error | null;
 }
 
 /** Catches render-time crashes so a broken view never takes down the whole app. */
-export class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
   state: State = { error: null };
 
   static getDerivedStateFromError(error: Error): State {
@@ -18,13 +26,16 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
+    // Always log; hand off to the reporting seam if one is wired.
     console.error('Render error:', error, info.componentStack);
+    this.props.onError?.(error, info);
   }
 
   private reset = (): void => this.setState({ error: null });
 
   render(): ReactNode {
     if (!this.state.error) return this.props.children;
+    if (this.props.fallback) return this.props.fallback(this.reset);
     return (
       <div role="alert" className="grid min-h-dvh place-items-center p-8">
         <div className="panel max-w-md p-8 text-center">

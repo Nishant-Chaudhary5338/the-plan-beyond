@@ -60,7 +60,7 @@ export const professionalSchema = z.object({
 export const contactSchema = z.object({
   id: z.string(),
   title: z.enum(TITLES).optional(),
-  firstName: z.string().min(1, 'First name is required'),
+  firstName: z.string().trim().min(1, 'First name is required'),
   middleName: z.string().default(''),
   lastName: z.string().default(''),
   dateOfBirth: z.string().optional(),
@@ -81,8 +81,8 @@ export const contactSchema = z.object({
 
 /** Payload to create a contact (the Add Contact modal). */
 export const createContactSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().default(''),
+  firstName: z.string().trim().min(1, 'First name is required'),
+  lastName: z.string().trim().default(''),
   countryCode: z.string().regex(/^\+\d{1,4}$/),
   phone: z.string().min(1),
 });

@@ -44,4 +44,95 @@ describe('parseVcf', () => {
   it('returns nothing for empty input', () => {
     expect(parseVcf('')).toEqual([]);
   });
+
+  it('unfolds RFC 6350 folded lines before parsing the value', () => {
+    const folded = `BEGIN:VCARD
+VERSION:3.0
+FN:Folded Number
+TEL:+12025
+ 550123
+END:VCARD`;
+    const [c] = parseVcf(folded);
+    expect(c?.countryCode).toBe('+1');
+    // The continuation digits must not be dropped.
+    expect(c?.phone).toBe('2025550123');
+  });
+
+  it('respects escaped semicolons in the N field', () => {
+    const escaped = `BEGIN:VCARD
+VERSION:3.0
+N:van der Berg\\;Jr;Bob;;;
+TEL:+14155550100
+END:VCARD`;
+    const [c] = parseVcf(escaped);
+    expect(c?.firstName).toBe('Bob');
+    expect(c?.lastName).toBe('van der Berg;Jr');
+  });
+
+  it('falls back to the family name when N has no given name', () => {
+    const familyOnly = `BEGIN:VCARD
+VERSION:3.0
+N:Smith;;;;
+TEL:+14155550111
+END:VCARD`;
+    const [c] = parseVcf(familyOnly);
+    expect(c?.firstName).toBe('Smith');
+    expect(c?.lastName).toBe('');
+  });
+
+  it('parses a US national number against the default region instead of mangling it', () => {
+    // A bare US number must not be misread as another country by prepending "+".
+    const usLocal = `BEGIN:VCARD
+VERSION:3.0
+FN:US Local
+TEL:+1 (202) 555-0123
+END:VCARD`;
+    const [c] = parseVcf(usLocal);
+    expect(c?.countryCode).toBe('+1');
+    expect(c?.phone).toBe('2025550123');
+  });
+
+  it('prefers a parseable CELL number when an earlier TEL is unusable', () => {
+    const multiTel = `BEGIN:VCARD
+VERSION:3.0
+FN:Multi Tel
+TEL;TYPE=HOME:not-a-number
+TEL;TYPE=CELL:+447700900456
+END:VCARD`;
+    const [c] = parseVcf(multiTel);
+    expect(c?.countryCode).toBe('+44');
+    expect(c?.phone).toBe('7700900456');
+  });
+
+  it('normalises a national leading-zero number to canonical E.164 parts', () => {
+    const leadingZero = `BEGIN:VCARD
+VERSION:3.0
+FN:UK Trunk
+TEL:+44 07700 900456
+END:VCARD`;
+    const [c] = parseVcf(leadingZero);
+    expect(c?.countryCode).toBe('+44');
+    expect(c?.phone).toBe('7700900456');
+  });
+
+  it('decodes quoted-printable name values', () => {
+    const qp = `BEGIN:VCARD
+VERSION:2.1
+N;ENCODING=QUOTED-PRINTABLE;CHARSET=UTF-8:Mu=C3=B1oz;Jos=C3=A9;;;
+TEL:+34911223344
+END:VCARD`;
+    const [c] = parseVcf(qp);
+    expect(c?.firstName).toBe('José');
+    expect(c?.lastName).toBe('Muñoz');
+  });
+
+  it('handles item-grouped property names', () => {
+    const grouped = `BEGIN:VCARD
+VERSION:3.0
+FN:Grouped Person
+item1.TEL:+14155550133
+END:VCARD`;
+    const [c] = parseVcf(grouped);
+    expect(c?.countryCode).toBe('+1');
+  });
 });

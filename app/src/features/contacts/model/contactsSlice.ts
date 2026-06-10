@@ -28,12 +28,17 @@ const contactsSlice = createSlice({
       const { key, value } = action.payload;
       state.filters[key] = value;
       if (key !== 'page') state.filters.page = 1;
+      // Selection is per-visible-page; any change to what's shown clears it so
+      // ids can't leak across pages/filters into a bulk action.
+      state.selectedIds = [];
     },
     setPage(state, action: PayloadAction<number>) {
       state.filters.page = Math.max(1, action.payload);
+      state.selectedIds = [];
     },
     resetFilters(state) {
       state.filters = { ...DEFAULT_FILTERS, sort: state.filters.sort };
+      state.selectedIds = [];
     },
     toggleSelected(state, action: PayloadAction<string>) {
       const id = action.payload;

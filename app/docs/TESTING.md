@@ -25,7 +25,7 @@ at the feature boundary, a thin e2e layer for the critical journeys.
 pnpm test            # unit + integration (watch: pnpm test:watch)
 pnpm test:cov        # coverage; thresholds enforced on features/contacts (≥80%)
 pnpm e2e             # Playwright (needs: npx playwright install chromium)
-pnpm ci              # lint → typecheck → test → build
+pnpm ci              # lint → typecheck → test:cov → build (coverage thresholds enforced)
 ```
 
 E2E runs serially (`workers: 1`) because the mock API holds a single in-memory
@@ -33,4 +33,7 @@ store; each spec calls `POST /api/__reset` in `beforeEach` for a clean slate.
 
 ## Current state
 
-49 unit/integration tests and 10 Playwright tests (incl. 2 axe scans) pass.
+139 unit/integration tests across 24 files and 10 Playwright tests (incl. 2 axe scans) pass.
+
+The enforced coverage floor is **scoped** to `src/features/contacts/**` (≥80% statements/functions/lines,
+≥75% branches); overall coverage runs ~92% but is not itself gated.

@@ -6,10 +6,23 @@ export function displayName(c: Contact): string {
   return [c.firstName, c.middleName, c.lastName].filter(Boolean).join(' ');
 }
 
-/** The leading A–Z letter a contact is indexed under ('#' for non-alpha). */
+// Latin letters whose diacritic is a stroke/ligature and so survive NFD folding.
+const LATIN_FOLD: Record<string, string> = {
+  Ł: 'L', Ø: 'O', Đ: 'D', Ð: 'D', Þ: 'T', Ħ: 'H', Ŧ: 'T', Ƀ: 'B',
+};
+
+/**
+ * The leading A–Z letter a contact is indexed under ('#' for non-alpha).
+ * Accented Latin initials are folded to their base letter (e.g. "Émile" → "E",
+ * "José" → "J", "Łukasz" → "L") so they bucket correctly; non-Latin scripts
+ * fall under '#'.
+ */
 export function indexLetter(c: Contact): string {
-  const ch = c.firstName.trim().charAt(0).toUpperCase();
-  return /[A-Z]/.test(ch) ? ch : '#';
+  const upper = c.firstName.trim().charAt(0).toUpperCase();
+  if (!upper) return '#';
+  const folded = upper.normalize('NFD').replace(/\p{Diacritic}/gu, '').charAt(0);
+  if (/^[A-Z]$/.test(folded)) return folded;
+  return LATIN_FOLD[upper] ?? '#';
 }
 
 function matchesSearch(c: Contact, term: string): boolean {
@@ -68,8 +81,8 @@ export function filterContacts(all: Contact[], f: Partial<ContactFilters>): Filt
   filtered.sort(comparator(f.sort ?? 'name-asc'));
 
   const total = filtered.length;
-  const page = Math.max(1, f.page ?? 1);
-  const pageSize = f.pageSize ?? 25;
+  const page = Math.max(1, Math.trunc(f.page ?? 1));
+  const pageSize = Math.max(1, Math.trunc(f.pageSize ?? 25));
   const start = (page - 1) * pageSize;
   return { items: filtered.slice(start, start + pageSize), total };
 }
