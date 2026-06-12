@@ -13,15 +13,25 @@
  *   tsx tools/code-indexer/scripts/prove-any-repo.ts --only <name>   # one corpus entry
  *   tsx tools/code-indexer/scripts/prove-any-repo.ts --root <path>   # an already-local dir (no clone)
  *   tsx tools/code-indexer/scripts/prove-any-repo.ts --root ../app --only the-plan-beyond-app
+ *   tsx tools/code-indexer/scripts/prove-any-repo.ts __index <root>  # worker: index ONE root, print JSON
  *
  * Network note: cloning the real corpus is slow and network-bound; the harness is
  * idempotent (a clone is skipped when its cache dir already exists) but a full
  * corpus run is meant to be a separate, gated step. The `--root` flag indexes a
  * local directory with no network at all, which is how we validate the harness
  * end-to-end against the sibling app.
+ *
+ * Process isolation: the orchestrator never indexes in its own process. Each repo
+ * is indexed in a fresh child Node process (`__index <root>`, heap bumped to 8 GB)
+ * via spawnSync with a wall-clock timeout. A child that OOMs (SIGABRT/SIGKILL),
+ * times out, or throws is recorded as a FAILED row with an honest reason — it can
+ * never abort the whole run. This is what lets the corpus include giant monorepos
+ * (cal.com, excalidraw) without one heap exhaustion wiping out every other result.
  */
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,7 +43,8 @@ import type { GraphSnapshot } from '@repo/code-graph-core';
 // Paths
 // ---------------------------------------------------------------------------
 
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
+const SCRIPT_DIR = path.dirname(SCRIPT_PATH);
 // tools/code-indexer/scripts -> tools/code-indexer
 const PACKAGE_DIR = path.resolve(SCRIPT_DIR, '..');
 // tools/code-indexer -> repo root (mcp-indexer)
@@ -41,8 +52,44 @@ const REPO_ROOT = path.resolve(PACKAGE_DIR, '..', '..');
 
 const CORPUS_PATH = path.join(SCRIPT_DIR, 'corpus.json');
 const CACHE_DIR = path.join(PACKAGE_DIR, '.proof-cache');
+
+// Clones live under `.proof-cache/`, which is INSIDE the mcp-indexer turborepo.
+// The engine's workspace discovery walks UP from the index root to the nearest
+// `turbo.json`/`pnpm-workspace.yaml`, so a clone that has no recognized workspace
+// marker of its own would climb past `.proof-cache` and re-index mcp-indexer
+// ITSELF. We sidestep this purely from the harness (no engine change) by indexing
+// each clone through a symlink under a neutral OS-temp "jail" dir — the upward
+// walk then terminates at the temp boundary instead of escaping into this repo.
+const JAIL_DIR = path.join(os.tmpdir(), 'prove-any-repo-roots');
 const RESULTS_MD = path.join(SCRIPT_DIR, 'PROOF_RESULTS.md');
 const RESULTS_JSON = path.join(SCRIPT_DIR, 'PROOF_RESULTS.json');
+
+// ---------------------------------------------------------------------------
+// Child-process isolation knobs
+// ---------------------------------------------------------------------------
+
+const WORKER_FLAG = '__index';
+// Each worker gets an 8 GB heap; giants still OOM, but the smaller repos now have
+// the headroom to finish cleanly instead of dying from a too-small default heap.
+const WORKER_HEAP_MB = 8192;
+// Wall-clock budget per repo. A repo that has not produced its JSON line by this
+// point is recorded as a `timeout` FAILED row and the next repo proceeds.
+const WORKER_TIMEOUT_MS = 180_000;
+// The child prints exactly one JSON line; cap its captured stdout generously.
+const WORKER_MAX_BUFFER = 64 * 1024 * 1024;
+
+// Marker the worker wraps its single JSON line in, so we can recover it even if
+// the engine logs noise to stdout before it.
+const RESULT_PREFIX = '@@PROOF_RESULT@@';
+
+// The one line a worker prints on success.
+type WorkerPayload = {
+  nodes: number;
+  edges: number;
+  nodesByType: Record<NodeTypeKey, number>;
+  edgesByType: Record<EdgeTypeKey, number>;
+  durationMs: number;
+};
 
 // ---------------------------------------------------------------------------
 // Corpus schema (kept local; the harness owns nothing in the engine's contract)
@@ -204,9 +251,126 @@ const ensureClone = (entry: CorpusEntry): { dir: string } | { error: string } =>
 const resolveRoot = (cloneDir: string, subdir?: string): string =>
   subdir ? path.join(cloneDir, subdir) : cloneDir;
 
+/**
+ * Index path for a corpus clone, jailed outside the mcp-indexer tree.
+ *
+ * Symlinks the clone ROOT (`.proof-cache/<name>`) to `JAIL_DIR/<name>` and returns
+ * `JAIL_DIR/<name>[/subdir]`. Because the engine's `findMonorepoRoot` walk is
+ * lexical (`path.dirname`), walking up from the jailed path stops at the OS-temp
+ * boundary and never reaches mcp-indexer's `turbo.json`. The symlink target still
+ * resolves to the real clone for file reads, so the clone's OWN workspace markers
+ * (cal.com's / vite's) are still honored. Returns `{ error }` if the symlink can't
+ * be created (the caller records it and moves on).
+ */
+const jailedIndexRoot = (
+  name: string,
+  cloneDir: string,
+  subdir?: string,
+): { root: string } | { error: string } => {
+  const link = path.join(JAIL_DIR, name);
+  try {
+    fs.mkdirSync(JAIL_DIR, { recursive: true });
+    // Refresh the link idempotently: drop any stale one, then point at the clone.
+    try {
+      fs.rmSync(link, { force: true });
+    } catch {
+      /* best-effort */
+    }
+    fs.symlinkSync(cloneDir, link, 'dir');
+  } catch (err) {
+    return {
+      error: `jail symlink failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+  return { root: subdir ? path.join(link, subdir) : link };
+};
+
 // ---------------------------------------------------------------------------
-// Index one root in-process (the exact engine call the CLI makes)
+// Worker mode — index ONE root in-process and print a single JSON line.
+//
+// This is the body that used to run in the orchestrator's own process. It now
+// runs only inside a spawned child (`__index <root>`), so an OOM here aborts the
+// CHILD, not the run. On success it prints `RESULT_PREFIX{json}` to stdout and
+// exits 0; on a thrown error it prints the message to stderr and exits 1. An OOM
+// never reaches this catch — it kills the child with SIGABRT, which the
+// orchestrator detects from the child's signal/exit code.
 // ---------------------------------------------------------------------------
+
+const runWorker = (root: string): never => {
+  if (!fs.existsSync(root)) {
+    process.stderr.write(`index root does not exist: ${root}\n`);
+    process.exit(1);
+  }
+  try {
+    // Mirror the CLI exactly: runFullIndex(createConfig(root)).
+    const { snapshot, durationMs } = runFullIndex(createConfig(root));
+    const { nodesByType, edgesByType } = countSnapshot(snapshot);
+    const payload: WorkerPayload = {
+      nodes: snapshot.nodes.length,
+      edges: snapshot.edges.length,
+      nodesByType,
+      edgesByType,
+      durationMs,
+    };
+    process.stdout.write(`${RESULT_PREFIX}${JSON.stringify(payload)}\n`);
+    process.exit(0);
+  } catch (err) {
+    const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Orchestrator — index one root in an ISOLATED child process.
+//
+// spawnSync a fresh Node (8 GB heap) running this same script in `__index` mode.
+// Any failure mode — non-zero exit, OOM signal, or timeout — becomes a FAILED
+// RepoResult with an honest one-line reason, and the caller moves on. The
+// orchestrator process itself does no engine work and so cannot be OOM-killed by
+// a single huge repo.
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve how to launch this script in a child Node with TS support. Preferred:
+ * `node --import tsx <script>` (works on Node ≥18.19 / 20.6). Falls back to the
+ * resolved tsx CLI (`node <tsx/cli> <script>`) if `--import tsx` is unavailable.
+ */
+const workerLauncher = (): { heapArg: string; loaderArgs: string[] } => {
+  const heapArg = `--max-old-space-size=${WORKER_HEAP_MB}`;
+  try {
+    const require = createRequire(SCRIPT_PATH);
+    require.resolve('tsx'); // throws if tsx isn't installed at all.
+    return { heapArg, loaderArgs: ['--import', 'tsx'] };
+  } catch {
+    // Last-ditch: resolve the tsx CLI entry and run it as the script.
+    const require = createRequire(SCRIPT_PATH);
+    const tsxCli = require.resolve('tsx/cli');
+    return { heapArg, loaderArgs: [tsxCli] };
+  }
+};
+
+/** Map a finished child process into a short, honest failure reason. */
+const childFailureReason = (
+  status: number | null,
+  signal: NodeJS.Signals | null,
+  spawnErr: Error | undefined,
+  stderr: string,
+  timedOut: boolean,
+): string => {
+  if (timedOut) return `timeout ${Math.round(WORKER_TIMEOUT_MS / 1000)}s`;
+  if (spawnErr) return `worker spawn failed: ${spawnErr.message}`;
+  // OOM typically arrives as SIGABRT (V8 abort) or SIGKILL (OS killer).
+  if (signal === 'SIGABRT' || signal === 'SIGKILL') return `OOM (heap)`;
+  if (signal) return `killed by ${signal}`;
+  const firstLine = stderr.split('\n').find((l) => l.trim().length > 0) ?? '';
+  // V8's heap-exhaustion message can also surface on stderr before the abort.
+  if (/heap out of memory|allocation failed|Reached heap limit/i.test(stderr)) {
+    return 'OOM (heap)';
+  }
+  const tail = firstLine.slice(0, 140);
+  return `worker exited ${status ?? 'null'}${tail ? `: ${tail}` : ''}`;
+};
 
 const indexRoot = (
   meta: { name: string; kind: string; source: string },
@@ -231,30 +395,71 @@ const indexRoot = (
     };
   }
 
+  const { heapArg, loaderArgs } = workerLauncher();
+  const args = [heapArg, ...loaderArgs, SCRIPT_PATH, WORKER_FLAG, root];
   const startedAt = Date.now();
-  try {
-    // Mirror the CLI exactly: runFullIndex(createConfig(root)).
-    const { snapshot, durationMs } = runFullIndex(createConfig(root));
-    const { nodesByType, edgesByType } = countSnapshot(snapshot);
-    return {
-      ...base,
-      ok: true,
-      nodesTotal: snapshot.nodes.length,
-      edgesTotal: snapshot.edges.length,
-      nodesByType,
-      edgesByType,
-      durationMs,
-    };
-  } catch (err) {
-    return {
-      ...base,
-      ok: false,
-      nodesTotal: 0,
-      edgesTotal: 0,
-      durationMs: Date.now() - startedAt,
-      error: err instanceof Error ? (err.stack ?? err.message) : String(err),
-    };
+  const child = spawnSync(process.execPath, args, {
+    encoding: 'utf-8',
+    timeout: WORKER_TIMEOUT_MS,
+    maxBuffer: WORKER_MAX_BUFFER,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    // Belt-and-braces: also set the heap via env in case a launcher swallows the
+    // execArgv (NODE_OPTIONS is honored by the child Node before user code runs).
+    env: { ...process.env, NODE_OPTIONS: heapArg },
+  });
+  const wallMs = Date.now() - startedAt;
+
+  const stdout = child.stdout ?? '';
+  const stderr = (child.stderr ?? '').trim();
+  const timedOut = child.signal === 'SIGTERM' && wallMs >= WORKER_TIMEOUT_MS - 1000;
+
+  // Success path: find our marker line and parse the payload.
+  const marker = stdout
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.startsWith(RESULT_PREFIX));
+
+  if (child.status === 0 && marker) {
+    try {
+      const payload = JSON.parse(marker.slice(RESULT_PREFIX.length)) as WorkerPayload;
+      return {
+        ...base,
+        ok: true,
+        nodesTotal: payload.nodes,
+        edgesTotal: payload.edges,
+        nodesByType: payload.nodesByType,
+        edgesByType: payload.edgesByType,
+        durationMs: payload.durationMs,
+        error: null,
+      };
+    } catch (err) {
+      return {
+        ...base,
+        ok: false,
+        nodesTotal: 0,
+        edgesTotal: 0,
+        durationMs: wallMs,
+        error: `worker produced unparseable JSON: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      };
+    }
   }
+
+  return {
+    ...base,
+    ok: false,
+    nodesTotal: 0,
+    edgesTotal: 0,
+    durationMs: wallMs,
+    error: childFailureReason(
+      child.status,
+      child.signal,
+      child.error,
+      stderr,
+      timedOut,
+    ),
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -381,7 +586,20 @@ const loadCorpus = (): CorpusEntry[] => {
 // ---------------------------------------------------------------------------
 
 const main = (): void => {
-  const { only, root } = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+
+  // Worker mode: `__index <root>`. Index that single root in THIS process and
+  // print one JSON line, then exit. The orchestrator spawns us this way.
+  if (argv[0] === WORKER_FLAG) {
+    const workerRoot = argv[1];
+    if (!workerRoot) {
+      process.stderr.write(`${WORKER_FLAG} requires a <root> argument\n`);
+      process.exit(2);
+    }
+    runWorker(workerRoot); // never returns
+  }
+
+  const { only, root } = parseArgs(argv);
   const results: RepoResult[] = [];
 
   if (root) {
@@ -431,7 +649,27 @@ const main = (): void => {
         continue;
       }
 
-      const indexRootPath = resolveRoot(clone.dir, entry.subdir);
+      // A configured `subdir` can drift out from under us as upstream repos are
+      // restructured (e.g. shadcn moved apps/www -> apps/v4). Rather than fail the
+      // row on a stale path, fall back to indexing the clone root — for a turbo /
+      // pnpm workspace that still discovers the whole monorepo, which is the point.
+      let effectiveSubdir = entry.subdir;
+      if (effectiveSubdir && !fs.existsSync(path.join(clone.dir, effectiveSubdir))) {
+        console.error(
+          `  subdir "${effectiveSubdir}" not found — falling back to clone root`,
+        );
+        effectiveSubdir = undefined;
+      }
+
+      // Jail the clone outside the mcp-indexer tree so workspace discovery can't
+      // climb up into this repo (see jailedIndexRoot). Falls back to the raw clone
+      // path if symlinking is unavailable — a degraded but non-fatal mode.
+      const jailed = jailedIndexRoot(entry.name, clone.dir, effectiveSubdir);
+      const indexRootPath =
+        'root' in jailed ? jailed.root : resolveRoot(clone.dir, effectiveSubdir);
+      if ('error' in jailed) {
+        console.error(`  jail warning: ${jailed.error} — indexing clone in place`);
+      }
       console.log(`  indexing root: ${indexRootPath}`);
       const result = indexRoot(meta, indexRootPath);
       if (result.ok) {
