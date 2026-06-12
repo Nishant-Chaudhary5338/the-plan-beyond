@@ -4,7 +4,7 @@
   "type": "module",
   "main": "build/code-indexer/src/index.js",
   "bin": {
-    "code-indexer": "build/code-indexer/src/cli.js"
+    "code-indexer": "build/code-indexer/src/cli-bin.js"
   },
   "exports": {
     ".": "./build/code-indexer/src/index.js",
@@ -13,15 +13,17 @@
     "./cache": "./build/code-indexer/src/engine/incremental/cache.js",
     "./session": "./build/code-indexer/src/engine/session.js",
     "./knowledge": "./build/code-indexer/src/engine/knowledge/index.js",
-    "./query": "./build/code-indexer/src/query.js"
+    "./query": "./build/code-indexer/src/query.js",
+    "./cli": "./build/code-indexer/src/cli.js",
+    "./server": "./build/code-indexer/src/server.js"
   },
   "scripts": {
-    "build": "tsc && node -e \"try{require('fs').chmodSync('build/code-indexer/src/index.js','755');require('fs').chmodSync('build/code-indexer/src/cli.js','755')}catch(e){}\"",
+    "build": "tsc && node -e \"try{require('fs').chmodSync('build/code-indexer/src/index.js','755');require('fs').chmodSync('build/code-indexer/src/cli-bin.js','755')}catch(e){}\"",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "vitest run",
-    "index": "node build/code-indexer/src/cli.js index"
+    "index": "node build/code-indexer/src/cli-bin.js index"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

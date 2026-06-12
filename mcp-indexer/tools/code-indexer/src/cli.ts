@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import * as path from 'path';
 import { createConfig } from './config.js';
 import { runFullIndex, runIncrementalIndex } from './engine/index.js';
@@ -141,8 +140,7 @@ const runQueryCommand = (argv: string[]): void => {
   }
 };
 
-const main = (): void => {
-  const argv = process.argv.slice(2);
+export const runCli = (argv: string[]): void => {
   const [command = 'index', ...rest] = argv;
 
   if (command === 'index') {
@@ -167,5 +165,3 @@ const main = (): void => {
   );
   process.exit(1);
 };
-
-main();
