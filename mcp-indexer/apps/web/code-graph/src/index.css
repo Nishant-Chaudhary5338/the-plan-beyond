@@ -1,31 +1,31 @@
 @import 'tailwindcss';
 
-/* Design tokens. One accent + one mono face, registered with Tailwind v4 so
-   `text-accent`/`bg-accent`/`font-mono` resolve. Code identifiers (node names,
-   paths, citations, commands) render in the mono face — a dev tool should look
-   like one. */
+/* Design tokens — the ember/signal identity (see docs/EXPLORER_REDESIGN.md §B).
+   One accent that means execution (ember), one signal hue that means data-in-
+   motion (teal). Code identifiers (node names, paths, citations, commands)
+   render in the mono face — a dev tool should look like one. */
 @theme {
   --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Menlo', monospace;
-  --color-accent: #a78bfa;
+  --color-accent: #ff6a2b; /* ember — selection / focus / execution */
+  --color-signal: #3fd9c4; /* teal — edges-in-motion / live */
 }
 
-/* Surface / line / text ramp + status hues as CSS vars. The neutral ramp is
-   tuned so anything meaningful clears WCAG AA on the #080a12 canvas; warm-status
-   hues are kept distinct (impact is magenta, not orange, so "blast radius" reads
-   as analysis, not alarm — and doesn't collide with amber warnings / red errors). */
+/* Surface / line / text ramp + status hues. Neutral ramp tuned so meaningful
+   text clears WCAG AA on the #08090A canvas; blast-radius is err-red (honest
+   alarm), cycles stay warn-amber, so the two never collide. */
 :root {
-  --surface: rgba(10, 11, 18, 0.6);
-  --surface-raised: rgba(10, 11, 18, 0.72);
-  --line: rgba(255, 255, 255, 0.06);
-  --line-strong: rgba(255, 255, 255, 0.1);
-  --text: #e4e4e7; /* zinc-200 */
-  --text-muted: #a1a1aa; /* zinc-400 — floor for meaningful secondary text */
-  --text-faint: #8a8a93; /* between zinc-400/500 — decorative only */
-  --accent-glow: 0 0 24px -6px rgba(139, 92, 246, 0.55);
-  --status-ok: #34d399;
-  --status-warn: #fbbf24;
-  --status-error: #fb7185;
-  --status-impact: #e879f9; /* magenta — analysis, not alarm */
+  --surface: rgba(17, 18, 20, 0.72); /* surface-1 @ 72% */
+  --surface-raised: rgba(28, 31, 35, 0.78);
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.11);
+  --text: #f2f3f5;
+  --text-muted: #9da2a9; /* floor for meaningful secondary text */
+  --text-faint: #6b7079; /* decorative only */
+  --accent-glow: 0 0 24px -6px rgba(255, 106, 43, 0.5);
+  --status-ok: #46d88a;
+  --status-warn: #f5b544;
+  --status-error: #f2606a;
+  --status-impact: #f2606a; /* blast radius = honest alarm (was magenta) */
 }
 
 html,
@@ -36,8 +36,8 @@ body,
 }
 
 body {
-  background-color: #080a12;
-  color: #e4e4e7;
+  background-color: #08090a;
+  color: #f2f3f5;
   font-family:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
@@ -47,12 +47,11 @@ body {
 button:focus-visible,
 input:focus-visible,
 a:focus-visible {
-  outline: 2px solid #a78bfa;
+  outline: 2px solid #ff6a2b;
   outline-offset: 2px;
 }
 
-/* Press feedback on every button (Kowalski): snappy scale, no `transition: all`.
-   Higher specificity than Tailwind's `transition-colors`, so transform animates. */
+/* Press feedback on every button (Kowalski): snappy scale, no `transition: all`. */
 button:not(:disabled) {
   transition-property: transform, color, background-color, border-color, box-shadow;
   transition-duration: 140ms;
@@ -90,33 +89,38 @@ button:not(:disabled):active {
   animation: rise-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Atmosphere over the graph: faint indigo core glow + edge vignette for depth. */
+/* Atmosphere over the graph: faint ember core glow + a teal signal wash + edge
+   vignette for depth (retuned from the old indigo). */
 .graph-vignette {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
     radial-gradient(
-      ellipse 70% 55% at 50% 42%,
-      rgba(99, 102, 241, 0.07),
-      transparent 72%
+      ellipse 70% 55% at 50% 40%,
+      rgba(255, 106, 43, 0.05),
+      transparent 70%
     ),
-    radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.5) 100%);
+    radial-gradient(
+      ellipse 60% 50% at 70% 80%,
+      rgba(63, 217, 196, 0.035),
+      transparent 65%
+    ),
+    radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.55) 100%);
 }
 
-/* Glass surface treatment (Linear/Raycast): hairline lit edge over blur. */
+/* Glass surface treatment (Linear/Raycast): hairline lit edge over blur, tuned
+   to the dark ember surfaces. */
 .glass {
-  background: rgba(255, 255, 255, 0.025);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(17, 18, 20, 0.72);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.075);
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-    0 8px 30px -12px rgba(0, 0, 0, 0.6);
+    0 8px 30px -12px rgba(0, 0, 0, 0.65);
 }
 
-/* Honor the OS "reduce motion" setting (WCAG 2.3.3): strip the press-scale,
-   panel/rise entrances, and link-particle-ish transitions down to instant.
-   Mirrors the sibling app's guard. */
+/* Honor the OS "reduce motion" setting (WCAG 2.3.3). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

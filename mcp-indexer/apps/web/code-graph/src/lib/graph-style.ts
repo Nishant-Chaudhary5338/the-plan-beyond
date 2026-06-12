@@ -1,40 +1,46 @@
 import type { NodeType, HealthLevel } from '@repo/code-graph-core';
 
-// Structural palette — vivid but harmonious on a dark canvas (matches the legend).
+// Node type → color. Retuned to the ember/signal identity (see
+// docs/EXPLORER_REDESIGN.md §B): one ember accent that means "the thing you
+// render" (component), one neutral ramp for structure, violet for behaviour.
 export const TYPE_COLOR: Record<NodeType, string> = {
-  repo: '#c084fc',
-  app: '#38bdf8',
-  package: '#34d399',
-  folder: '#d4a373',
-  file: '#8da2c0',
-  component: '#fbbf24',
-  function: '#f472b6',
+  repo: '#F2F3F5', // bright neutral — the root
+  app: '#5B9DFF', // info blue — an application surface
+  package: '#46D88A', // ok green — a unit that builds
+  folder: '#6B7079', // muted — structural, recedes
+  file: '#9DA2A9', // secondary — the default grain
+  component: '#FF6A2B', // EMBER — the star
+  function: '#C792EA', // violet — behaviour / logic
 };
 
-// Health palette — distinct hues paired everywhere with text/icons (never color
-// alone). Mirrors the --status-* tokens in index.css.
+// Health palette — paired everywhere with text/icons (never color alone).
 export const HEALTH_COLOR: Record<HealthLevel, string> = {
-  ok: '#34d399',
-  warn: '#fbbf24',
-  error: '#fb7185',
-  unknown: '#94a3b8',
+  ok: '#46D88A',
+  warn: '#F5B544',
+  error: '#F2606A',
+  unknown: '#474B52',
 };
 
+// Edges read as light, low-alpha threads; only the active relation lights up.
+// renders = signal teal (UI composition), calls = ember (behaviour flow),
+// depends-on = info blue (package graph). Structure stays faint.
 export const EDGE_COLOR: Record<string, string> = {
-  imports: 'rgba(148,163,184,0.35)',
-  'depends-on': 'rgba(167,139,250,0.5)',
-  calls: 'rgba(251,146,60,0.45)',
-  renders: 'rgba(34,211,238,0.45)',
-  references: 'rgba(100,116,139,0.3)',
-  contains: 'rgba(63,63,70,0.3)',
+  contains: 'rgba(71,75,82,0.22)',
+  imports: 'rgba(157,162,169,0.30)',
+  references: 'rgba(107,112,121,0.22)',
+  renders: 'rgba(63,217,196,0.45)',
+  calls: 'rgba(255,140,90,0.42)',
+  'depends-on': 'rgba(91,157,255,0.45)',
 };
 
-// Impact / blast-radius is an *analysis* overlay, not an alarm — magenta keeps
-// it clearly distinct from amber warnings and red errors (and colorblind-safer
-// than three adjacent warm hues). Matches --status-impact.
-export const IMPACT_COLOR = '#e879f9';
-export const SELECTED_COLOR = '#eef2ff';
-export const DIMMED_COLOR = '#2a2b34';
+// Blast radius IS the alarm in this vocabulary — honest err red (the old viewer's
+// magenta is retired; warn-amber stays reserved for cycles, so the two never
+// collide). Selection is ember; hover-trace halo is signal-bright.
+export const SELECTED_COLOR = '#FF6A2B'; // ember
+export const TRACE_COLOR = '#67ECDA'; // signal-bright (hover trace)
+export const IMPACT_COLOR = '#F2606A'; // err red (blast radius)
+export const CYCLE_COLOR = '#F5B544'; // warn amber (cycle members)
+export const DIMMED_COLOR = '#1C1F23'; // surface-3 — backgrounded nodes
 
 const MIN_SIZE = 3;
 const MAX_SIZE = 11;
