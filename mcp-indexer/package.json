@@ -14,9 +14,9 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
-    "index": "node tools/code-indexer/build/code-indexer/src/cli.js index",
+    "index": "node tools/code-indexer/build/code-indexer/src/cli-bin.js index",
     "serve": "pnpm --filter indexer-server start",
-    "index:app": "node tools/code-indexer/build/code-indexer/src/cli.js index --root ../app",
+    "index:app": "node tools/code-indexer/build/code-indexer/src/cli-bin.js index --root ../app",
     "serve:app": "INDEXER_ROOT=../app pnpm --filter indexer-server start",
     "ui": "pnpm --filter code-graph dev",
     "prove": "tsx tools/code-indexer/scripts/prove-any-repo.ts"
