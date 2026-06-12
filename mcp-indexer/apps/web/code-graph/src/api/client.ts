@@ -1,7 +1,10 @@
 import { GraphSnapshot, type NodeKnowledge } from '@repo/code-graph-core';
 
 export const fetchGraph = async (): Promise<GraphSnapshot> => {
-  const res = await fetch('/api/graph');
+  // The viewer needs the whole graph to render. `?full=1` bypasses the server's
+  // token-safe default, which returns a compact summary (no nodes/edges) on large
+  // repos — that default is for AI agents, not this client.
+  const res = await fetch('/api/graph?full=1');
   if (!res.ok) {
     throw new Error(`Failed to load graph (${res.status})`);
   }
