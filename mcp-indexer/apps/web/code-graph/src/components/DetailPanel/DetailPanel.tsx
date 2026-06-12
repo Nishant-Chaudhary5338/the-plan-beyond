@@ -1,8 +1,8 @@
-import { X, Search } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { GraphNode } from '@repo/code-graph-core';
 import { hasMetrics, nodePath } from '@repo/code-graph-core';
 import { TYPE_LABEL } from '../../lib/graph-model';
-import { TYPE_COLOR } from '../../lib/graph-style';
+import { TYPE_COLOR, QUERY_COLOR } from '../../lib/graph-style';
 import type { QueryKind } from '../../store/graphStore';
 import { StatusBadges } from './StatusBadges';
 import { KnowledgePanel } from './KnowledgePanel';
@@ -114,8 +114,11 @@ export const DetailPanel = ({
                         : 'bg-white/[0.03] text-zinc-300 hover:bg-white/[0.07]'
                     }`}
                   >
-                    <span className="flex items-center gap-1.5">
-                      <Search className="h-3.5 w-3.5" />
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: QUERY_COLOR[q.kind] ?? '#9DA2A9' }}
+                      />
                       {q.label}
                     </span>
                     <span className="font-mono tabular-nums text-[11px] text-zinc-400">

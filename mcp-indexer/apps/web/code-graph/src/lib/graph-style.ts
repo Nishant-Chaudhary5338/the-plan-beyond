@@ -42,6 +42,15 @@ export const IMPACT_COLOR = '#F2606A'; // err red (blast radius)
 export const CYCLE_COLOR = '#F5B544'; // warn amber (cycle members)
 export const DIMMED_COLOR = '#1C1F23'; // surface-3 — backgrounded nodes
 
+// Per reverse-query highlight color — what the painted match set glows. Each
+// reads as the relation it answers, so the panel swatch and the graph agree.
+export const QUERY_COLOR: Record<string, string> = {
+  renders: '#3FD9C4', // signal teal — UI composition
+  calls: '#FF8C5A', // ember-bright — behaviour
+  references: '#9DA2A9', // muted — generic reference
+  'blast-radius': IMPACT_COLOR, // err red — impact
+};
+
 const MIN_SIZE = 3;
 const MAX_SIZE = 11;
 

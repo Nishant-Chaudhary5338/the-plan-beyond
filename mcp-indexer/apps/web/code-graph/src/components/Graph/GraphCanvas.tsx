@@ -11,7 +11,6 @@ import {
   TYPE_COLOR,
   HEALTH_COLOR,
   EDGE_COLOR,
-  IMPACT_COLOR,
   SELECTED_COLOR,
   DIMMED_COLOR,
   nodeSize,
@@ -24,6 +23,8 @@ type GraphCanvasProps = {
   selectedId: string | null;
   statusVersion: number;
   impactSet: Set<string> | null;
+  /** Color for the painted query-match set (varies by reverse-query kind). */
+  highlightColor: string;
   colorMode: ColorMode;
   fitSignal: number;
   onDrill: (id: string) => void;
@@ -49,6 +50,7 @@ export const GraphCanvas = ({
   selectedId,
   statusVersion,
   impactSet,
+  highlightColor,
   colorMode,
   fitSignal,
   onDrill,
@@ -202,7 +204,7 @@ export const GraphCanvas = ({
 
   const colorFor = (node: ForceNode): string => {
     if (node.id === selectedId) return SELECTED_COLOR;
-    if (impactSet) return impactSet.has(node.id) ? IMPACT_COLOR : DIMMED_COLOR;
+    if (impactSet) return impactSet.has(node.id) ? highlightColor : DIMMED_COLOR;
     if (!isHighlit(node.id)) return DIMMED_COLOR;
     if (colorMode === 'health') return HEALTH_COLOR[node.status.health];
     return TYPE_COLOR[node.type];

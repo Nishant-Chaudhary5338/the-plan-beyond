@@ -3,6 +3,7 @@ import { Boxes, RefreshCw, Loader2, Search, FolderOpen } from 'lucide-react';
 import { useGraphStore } from './store/graphStore';
 import { pathToRoot } from './lib/graph-model';
 import { blastRadius, whoRenders, whoCalls, findReferences } from './lib/analysis';
+import { QUERY_COLOR, IMPACT_COLOR } from './lib/graph-style';
 import { GraphCanvas } from './components/Graph/GraphCanvas';
 import { Breadcrumbs } from './components/DrillDown/Breadcrumbs';
 import { DetailPanel, type QueryItem } from './components/DetailPanel/DetailPanel';
@@ -130,6 +131,9 @@ export const App = (): React.ReactElement => {
         { kind: 'blast-radius', label: 'Blast radius', count: blastRadius(index.crossEdges, selectedNode.id).size },
       ]
     : [];
+  const highlightColor = highlightKind
+    ? QUERY_COLOR[highlightKind] ?? IMPACT_COLOR
+    : IMPACT_COLOR;
 
   return (
     <div className="flex h-full flex-col">
@@ -182,6 +186,7 @@ export const App = (): React.ReactElement => {
             selectedId={selectedId}
             statusVersion={statusVersion}
             impactSet={impactSet}
+            highlightColor={highlightColor}
             colorMode={colorMode}
             fitSignal={fitSignal}
             onDrill={drillInto}
