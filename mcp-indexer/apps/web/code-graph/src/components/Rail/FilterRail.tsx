@@ -69,10 +69,13 @@ const Segmented = <T extends string>({
   options,
   value,
   onChange,
+  groupId,
 }: {
   options: [T, string][];
   value: T;
   onChange: (v: T) => void;
+  // Scopes the sliding pill's layoutId so multiple toggles don't share one.
+  groupId: string;
 }): React.ReactElement => (
   <div className="flex rounded-lg border border-white/[0.07] bg-white/[0.02] p-0.5">
     {options.map(([v, label]) => {
@@ -86,7 +89,7 @@ const Segmented = <T extends string>({
         >
           {active && (
             <motion.span
-              layoutId="rail-seg"
+              layoutId={`rail-seg-${groupId}`}
               transition={{ type: 'spring', stiffness: 500, damping: 40 }}
               className="absolute inset-0 rounded-md bg-accent/20 ring-1 ring-accent/40"
             />
@@ -150,6 +153,8 @@ export const FilterRail = (): React.ReactElement => {
   const toggleEdge = useGraphStore((s) => s.toggleEdge);
   const colorMode = useGraphStore((s) => s.colorMode);
   const setColorMode = useGraphStore((s) => s.setColorMode);
+  const renderMode = useGraphStore((s) => s.renderMode);
+  const setRenderMode = useGraphStore((s) => s.setRenderMode);
   const collapsed = useGraphStore((s) => s.railCollapsed);
   const toggleRail = useGraphStore((s) => s.toggleRail);
 
@@ -200,8 +205,21 @@ export const FilterRail = (): React.ReactElement => {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <Section title="View">
+          <Segmented
+            groupId="view"
+            options={[
+              ['3d', '3D'],
+              ['2d', '2D'],
+            ]}
+            value={renderMode}
+            onChange={setRenderMode}
+          />
+        </Section>
+
         <Section title="Color by">
           <Segmented
+            groupId="color"
             options={[
               ['type', 'Type'],
               ['health', 'Health'],

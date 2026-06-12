@@ -4,7 +4,7 @@ import { useGraphStore } from './store/graphStore';
 import { pathToRoot } from './lib/graph-model';
 import { blastRadius, whoRenders, whoCalls, findReferences } from './lib/analysis';
 import { QUERY_COLOR, IMPACT_COLOR } from './lib/graph-style';
-import { GraphCanvas } from './components/Graph/GraphCanvas';
+import { GraphView } from './components/Graph/GraphView';
 import { FilterRail } from './components/Rail/FilterRail';
 import { Breadcrumbs } from './components/DrillDown/Breadcrumbs';
 import { DetailPanel, type QueryItem } from './components/DetailPanel/DetailPanel';
@@ -175,7 +175,7 @@ export const App = (): React.ReactElement => {
       <div className="flex min-h-0 flex-1">
         <FilterRail />
         <main className="relative min-w-0 flex-1">
-          <GraphCanvas
+          <GraphView
             index={index}
             focusId={focusId}
             selectedId={selectedId}

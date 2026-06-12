@@ -18,6 +18,46 @@ import { connectWs } from '../api/ws';
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 export type ColorMode = 'type' | 'health';
 export type RenderMode = '2d' | '3d';
+
+// --- localStorage-backed UI preference persistence -------------------------
+// Survives reloads. Every access is guarded (SSR / private mode) and wrapped in
+// try/catch so a corrupt or unreadable value falls back instead of breaking load.
+const PREF_KEYS = {
+  colorMode: 'cg-color-mode',
+  renderMode: 'cg-render-mode',
+  railCollapsed: 'cg-rail-collapsed',
+  hiddenTypes: 'cg-hidden-types',
+  hiddenEdges: 'cg-hidden-edges',
+} as const;
+
+/** Read a raw localStorage string, mapping it through `parse` and falling back on any failure. */
+const readPref = <T>(key: string, fallback: T, parse: (raw: string) => T): T => {
+  if (typeof localStorage === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return parse(raw);
+  } catch {
+    return fallback;
+  }
+};
+
+/** Persist a value; never throws (private mode / quota). */
+const writePref = (key: string, value: string): void => {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore — persistence is best-effort */
+  }
+};
+
+/** Parse a JSON array of strings into a typed Set, dropping non-string members. */
+const parseStringSet = <T extends string>(raw: string): Set<T> => {
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error('not an array');
+  return new Set(parsed.filter((v): v is T => typeof v === 'string'));
+};
 /** A reverse-graph question, surfaced from the detail panel and painted on the graph. */
 export type QueryKind = 'renders' | 'calls' | 'references' | 'blast-radius';
 
@@ -96,24 +136,45 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   impactSet: null,
   highlightKind: null,
   cycleCount: 0,
-  colorMode: 'type',
-  renderMode: '3d',
-  hiddenTypes: new Set(),
-  hiddenEdges: new Set(),
-  railCollapsed: false,
+  colorMode: readPref<ColorMode>(PREF_KEYS.colorMode, 'type', (raw) =>
+    raw === 'type' || raw === 'health' ? raw : 'type',
+  ),
+  renderMode: readPref<RenderMode>(PREF_KEYS.renderMode, '3d', (raw) =>
+    raw === '2d' || raw === '3d' ? raw : '3d',
+  ),
+  hiddenTypes: readPref<Set<NodeType>>(
+    PREF_KEYS.hiddenTypes,
+    new Set(),
+    (raw) => parseStringSet<NodeType>(raw),
+  ),
+  hiddenEdges: readPref<Set<string>>(PREF_KEYS.hiddenEdges, new Set(), (raw) =>
+    parseStringSet<string>(raw),
+  ),
+  railCollapsed: readPref<boolean>(
+    PREF_KEYS.railCollapsed,
+    false,
+    (raw) => raw === '1',
+  ),
   showOnboarding:
     typeof localStorage !== 'undefined' &&
     localStorage.getItem('cg-onboarded') !== '1',
   lastUpdatedAt: null,
   fitSignal: 0,
 
-  setColorMode: (mode) => set({ colorMode: mode }),
-  setRenderMode: (mode) => set({ renderMode: mode }),
+  setColorMode: (mode) => {
+    writePref(PREF_KEYS.colorMode, mode);
+    set({ colorMode: mode });
+  },
+  setRenderMode: (mode) => {
+    writePref(PREF_KEYS.renderMode, mode);
+    set({ renderMode: mode });
+  },
   toggleType: (t) =>
     set((s) => {
       const next = new Set(s.hiddenTypes);
       if (next.has(t)) next.delete(t);
       else next.add(t);
+      writePref(PREF_KEYS.hiddenTypes, JSON.stringify([...next]));
       return { hiddenTypes: next };
     }),
   toggleEdge: (e) =>
@@ -121,9 +182,15 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       const next = new Set(s.hiddenEdges);
       if (next.has(e)) next.delete(e);
       else next.add(e);
+      writePref(PREF_KEYS.hiddenEdges, JSON.stringify([...next]));
       return { hiddenEdges: next };
     }),
-  toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
+  toggleRail: () =>
+    set((s) => {
+      const next = !s.railCollapsed;
+      writePref(PREF_KEYS.railCollapsed, next ? '1' : '0');
+      return { railCollapsed: next };
+    }),
   recenter: () => set((s) => ({ fitSignal: s.fitSignal + 1 })),
   goHome: () => {
     const root = get().snapshot ? rootId(get().snapshot!) : null;

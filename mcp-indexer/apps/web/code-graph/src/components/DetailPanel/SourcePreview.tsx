@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchSource } from '../../api/client';
 
 type SourceState =
@@ -9,31 +9,37 @@ type SourceState =
 /**
  * Self-contained source preview: given a node id, it fetches that node's source
  * text on mount (and whenever the id changes) and renders it in a scrollable
- * code block. Stale responses are dropped by tracking the requested id, so a
- * fast click-through can't paint an earlier node's source over a newer one.
+ * code block. The result is tagged with the id it belongs to, so a fast
+ * click-through never paints an earlier node's source over a newer one — and the
+ * loading state is *derived* (not set synchronously in the effect).
  */
 export const SourcePreview = ({
   nodeId,
 }: {
   nodeId: string;
 }): React.ReactElement => {
-  const [state, setState] = useState<SourceState>({ status: 'loading' });
-  const requestedId = useRef(nodeId);
+  const [loaded, setLoaded] = useState<{ id: string; state: SourceState } | null>(
+    null,
+  );
 
   useEffect(() => {
-    requestedId.current = nodeId;
-    setState({ status: 'loading' });
-
+    let cancelled = false;
     void fetchSource(nodeId).then((result) => {
-      // Drop the response if the selection moved on while we were fetching.
-      if (requestedId.current !== nodeId) return;
-      if (!result || result.code.trim().length === 0) {
-        setState({ status: 'empty' });
-        return;
-      }
-      setState({ status: 'ready', code: result.code });
+      if (cancelled) return;
+      const next: SourceState =
+        !result || result.code.trim().length === 0
+          ? { status: 'empty' }
+          : { status: 'ready', code: result.code };
+      setLoaded({ id: nodeId, state: next });
     });
+    return () => {
+      cancelled = true;
+    };
   }, [nodeId]);
+
+  // Until a result for the *current* id arrives, we're loading.
+  const state: SourceState =
+    loaded && loaded.id === nodeId ? loaded.state : { status: 'loading' };
 
   if (state.status === 'loading') {
     return <p className="text-[12px] text-zinc-500">Loading source…</p>;
