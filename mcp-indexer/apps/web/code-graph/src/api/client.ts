@@ -38,3 +38,11 @@ export const postChat = async (question: string): Promise<ChatResult> => {
   if (!res.ok) throw new Error(`Chat failed (${res.status})`);
   return (await res.json()) as ChatResult;
 };
+
+export const fetchSource = async (
+  id: string,
+): Promise<{ code: string; lang: string } | null> => {
+  const res = await fetch(`/api/node/${encodeURIComponent(id)}/source`);
+  if (!res.ok) return null;
+  return (await res.json()) as { code: string; lang: string };
+};

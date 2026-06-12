@@ -116,5 +116,18 @@ export const graphRouter = (graph: GraphService): Router => {
     res.json({ node });
   });
 
+  router.get('/node/:id/source', (req, res) => {
+    if (!graph.getSnapshot()) {
+      res.status(503).json({ error: 'Graph not indexed yet' });
+      return;
+    }
+    const src = graph.getNodeSource(req.params.id);
+    if (!src) {
+      res.status(404).json({ error: `No source for: ${req.params.id}` });
+      return;
+    }
+    res.json(src);
+  });
+
   return router;
 };

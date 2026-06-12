@@ -3,7 +3,7 @@ import ForceGraph3D, { type ForceGraphMethods } from 'react-force-graph-3d';
 import { forceX, forceY, forceZ } from 'd3-force-3d';
 import { Vector2, FogExp2, DirectionalLight } from 'three';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import type { GraphNode } from '@repo/code-graph-core';
+import type { GraphNode, NodeType } from '@repo/code-graph-core';
 import { hasMetrics } from '@repo/code-graph-core';
 import { visibleGraph, type GraphIndex } from '../../lib/graph-model';
 import type { ColorMode } from '../../store/graphStore';
@@ -25,6 +25,9 @@ type GraphCanvasProps = {
   impactSet: Set<string> | null;
   /** Color for the painted query-match set (varies by reverse-query kind). */
   highlightColor: string;
+  /** Node/edge types hidden via the filter rail. */
+  hiddenTypes: Set<NodeType>;
+  hiddenEdges: Set<string>;
   colorMode: ColorMode;
   fitSignal: number;
   onDrill: (id: string) => void;
@@ -51,6 +54,8 @@ export const GraphCanvas = ({
   statusVersion,
   impactSet,
   highlightColor,
+  hiddenTypes,
+  hiddenEdges,
   colorMode,
   fitSignal,
   onDrill,
@@ -70,9 +75,25 @@ export const GraphCanvas = ({
     [index, focusId],
   );
 
+  // Apply the rail's type/edge filters before rendering + tracing.
+  const filtered = useMemo(() => {
+    const visNodes = nodes.filter((n) => !hiddenTypes.has(n.type));
+    const visIds = new Set(visNodes.map((n) => n.id));
+    const visLinks = links.filter(
+      (l) =>
+        !hiddenEdges.has(l.type) &&
+        visIds.has(linkEnd(l.source)) &&
+        visIds.has(linkEnd(l.target)),
+    );
+    return { visNodes, visLinks };
+  }, [nodes, links, hiddenTypes, hiddenEdges]);
+
   const data = useMemo(
-    () => ({ nodes, links: links.map((l) => ({ ...l })) }),
-    [nodes, links],
+    () => ({
+      nodes: filtered.visNodes,
+      links: filtered.visLinks.map((l) => ({ ...l })),
+    }),
+    [filtered],
   );
 
   // Adjacency over the visible links → trace a node's neighbours on hover.
@@ -83,12 +104,12 @@ export const GraphCanvas = ({
       set.add(b);
       map.set(a, set);
     };
-    for (const edge of links) {
-      link(edge.source, edge.target);
-      link(edge.target, edge.source);
+    for (const edge of filtered.visLinks) {
+      link(linkEnd(edge.source), linkEnd(edge.target));
+      link(linkEnd(edge.target), linkEnd(edge.source));
     }
     return map;
-  }, [links]);
+  }, [filtered]);
 
   const fitView = (): void => {
     const fg = fgRef.current;

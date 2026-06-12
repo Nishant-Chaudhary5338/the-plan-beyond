@@ -6,6 +6,7 @@ import { TYPE_COLOR, QUERY_COLOR } from '../../lib/graph-style';
 import type { QueryKind } from '../../store/graphStore';
 import { StatusBadges } from './StatusBadges';
 import { KnowledgePanel } from './KnowledgePanel';
+import { SourcePreview } from './SourcePreview';
 
 export type QueryItem = { kind: QueryKind; label: string; count: number };
 
@@ -133,6 +134,15 @@ export const DetailPanel = ({
                 Highlighting matches on the graph — click again to clear.
               </p>
             )}
+          </section>
+        )}
+
+        {KNOWLEDGE_TYPES.has(node.type) && (
+          <section className="mb-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              Source
+            </h3>
+            <SourcePreview nodeId={node.id} />
           </section>
         )}
 

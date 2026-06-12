@@ -5,10 +5,9 @@ import { pathToRoot } from './lib/graph-model';
 import { blastRadius, whoRenders, whoCalls, findReferences } from './lib/analysis';
 import { QUERY_COLOR, IMPACT_COLOR } from './lib/graph-style';
 import { GraphCanvas } from './components/Graph/GraphCanvas';
+import { FilterRail } from './components/Rail/FilterRail';
 import { Breadcrumbs } from './components/DrillDown/Breadcrumbs';
 import { DetailPanel, type QueryItem } from './components/DetailPanel/DetailPanel';
-import { Legend } from './components/Toolbar/Legend';
-import { ModeToggle } from './components/Toolbar/ModeToggle';
 import { ViewControls } from './components/Toolbar/ViewControls';
 import { LiveStatus } from './components/Toolbar/LiveStatus';
 import { ChatPanel } from './components/Chat/ChatPanel';
@@ -26,6 +25,8 @@ export const App = (): React.ReactElement => {
     impactSet,
     cycleCount,
     colorMode,
+    hiddenTypes,
+    hiddenEdges,
     showOnboarding,
     lastUpdatedAt,
     state,
@@ -39,7 +40,6 @@ export const App = (): React.ReactElement => {
     runQuery,
     clearQuery,
     highlightKind,
-    setColorMode,
     dismissOnboarding,
     openOnboarding,
     fitSignal,
@@ -169,16 +169,11 @@ export const App = (): React.ReactElement => {
               {cycleCount} cycles
             </span>
           )}
-          {/* Hide the swatch legend on narrow viewports so the header never
-              wraps; the mode toggle + detail panel remain the source of truth. */}
-          <div className="hidden max-w-[40vw] xl:flex">
-            <Legend mode={colorMode} />
-          </div>
-          <ModeToggle mode={colorMode} onChange={setColorMode} />
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
+        <FilterRail />
         <main className="relative min-w-0 flex-1">
           <GraphCanvas
             index={index}
@@ -187,6 +182,8 @@ export const App = (): React.ReactElement => {
             statusVersion={statusVersion}
             impactSet={impactSet}
             highlightColor={highlightColor}
+            hiddenTypes={hiddenTypes}
+            hiddenEdges={hiddenEdges}
             colorMode={colorMode}
             fitSignal={fitSignal}
             onDrill={drillInto}

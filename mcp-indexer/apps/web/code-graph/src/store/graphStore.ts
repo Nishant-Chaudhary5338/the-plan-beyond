@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GraphSnapshot, GraphPatch } from '@repo/code-graph-core';
+import type { GraphSnapshot, GraphPatch, NodeType } from '@repo/code-graph-core';
 import {
   buildIndex,
   rootId,
@@ -17,6 +17,7 @@ import { connectWs } from '../api/ws';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 export type ColorMode = 'type' | 'health';
+export type RenderMode = '2d' | '3d';
 /** A reverse-graph question, surfaced from the detail panel and painted on the graph. */
 export type QueryKind = 'renders' | 'calls' | 'references' | 'blast-radius';
 
@@ -34,12 +35,22 @@ type GraphStore = {
   highlightKind: QueryKind | null;
   cycleCount: number;
   colorMode: ColorMode;
+  renderMode: RenderMode;
+  /** Node types hidden via the filter rail. */
+  hiddenTypes: Set<NodeType>;
+  /** Edge types hidden via the filter rail. */
+  hiddenEdges: Set<string>;
+  railCollapsed: boolean;
   showOnboarding: boolean;
   /** Wall-clock of the last applied live patch, for the "updated Xs ago" pill. */
   lastUpdatedAt: number | null;
   fitSignal: number;
   load: () => Promise<void>;
   setColorMode: (mode: ColorMode) => void;
+  setRenderMode: (mode: RenderMode) => void;
+  toggleType: (t: NodeType) => void;
+  toggleEdge: (e: string) => void;
+  toggleRail: () => void;
   dismissOnboarding: () => void;
   openOnboarding: () => void;
   recenter: () => void;
@@ -86,6 +97,10 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   highlightKind: null,
   cycleCount: 0,
   colorMode: 'type',
+  renderMode: '3d',
+  hiddenTypes: new Set(),
+  hiddenEdges: new Set(),
+  railCollapsed: false,
   showOnboarding:
     typeof localStorage !== 'undefined' &&
     localStorage.getItem('cg-onboarded') !== '1',
@@ -93,6 +108,22 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   fitSignal: 0,
 
   setColorMode: (mode) => set({ colorMode: mode }),
+  setRenderMode: (mode) => set({ renderMode: mode }),
+  toggleType: (t) =>
+    set((s) => {
+      const next = new Set(s.hiddenTypes);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return { hiddenTypes: next };
+    }),
+  toggleEdge: (e) =>
+    set((s) => {
+      const next = new Set(s.hiddenEdges);
+      if (next.has(e)) next.delete(e);
+      else next.add(e);
+      return { hiddenEdges: next };
+    }),
+  toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
   recenter: () => set((s) => ({ fitSignal: s.fitSignal + 1 })),
   goHome: () => {
     const root = get().snapshot ? rootId(get().snapshot!) : null;

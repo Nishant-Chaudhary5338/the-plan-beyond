@@ -85,6 +85,52 @@ export class GraphService {
     return this.snapshot?.nodes.find((n) => n.id === id) ?? null;
   }
 
+  /**
+   * Read the on-disk source for a node (file body, or symbol span for
+   * components/functions). Returns null when the node is missing or has no
+   * path. The result is bounded (~400 lines / ~20KB) so a huge file can't blow
+   * up the detail panel; a truncation note is appended when clipped.
+   */
+  getNodeSource(id: string): { code: string; lang: string } | null {
+    const node = this.getNode(id);
+    if (!node) return null;
+    const rel = nodePath(node);
+    if (!rel) return null;
+
+    const root = this.session.getWorkspaceRoot();
+    const raw = readNodeSource(root, node);
+
+    const MAX_LINES = 400;
+    const MAX_BYTES = 20_000;
+    let code = raw;
+    let truncated = false;
+
+    const lines = code.split('\n');
+    if (lines.length > MAX_LINES) {
+      code = lines.slice(0, MAX_LINES).join('\n');
+      truncated = true;
+    }
+    if (code.length > MAX_BYTES) {
+      code = code.slice(0, MAX_BYTES);
+      truncated = true;
+    }
+    if (truncated) code += '\n\n… (truncated)';
+
+    const ext = rel.slice(rel.lastIndexOf('.') + 1).toLowerCase();
+    const lang =
+      ext === 'tsx'
+        ? 'tsx'
+        : ext === 'ts'
+          ? 'ts'
+          : ext === 'jsx'
+            ? 'jsx'
+            : ext === 'js'
+              ? 'js'
+              : 'text';
+
+    return { code, lang };
+  }
+
   getSession(): IndexerSession {
     return this.session;
   }
