@@ -12,7 +12,8 @@
     "./config": "./build/code-indexer/src/config.js",
     "./cache": "./build/code-indexer/src/engine/incremental/cache.js",
     "./session": "./build/code-indexer/src/engine/session.js",
-    "./knowledge": "./build/code-indexer/src/engine/knowledge/index.js"
+    "./knowledge": "./build/code-indexer/src/engine/knowledge/index.js",
+    "./query": "./build/code-indexer/src/query.js"
   },
   "scripts": {
     "build": "tsc && node -e \"try{require('fs').chmodSync('build/code-indexer/src/index.js','755');require('fs').chmodSync('build/code-indexer/src/cli.js','755')}catch(e){}\"",

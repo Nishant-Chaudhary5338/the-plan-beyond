@@ -4,6 +4,7 @@ import cors from 'cors';
 import type { AsyncSubscription } from '@parcel/watcher';
 import { GraphService } from './graph-service.js';
 import { graphRouter } from './routes/graph.js';
+import { queryRouter } from './routes/query.js';
 import { reindexRouter } from './routes/reindex.js';
 import { knowledgeRouter } from './routes/knowledge.js';
 import { attachWsHub, type WsHub } from './ws-hub.js';
@@ -67,8 +68,13 @@ export function createIndexerApp(opts: { root: string }): IndexerAppHandle {
       graph: snapshot ? { nodes: snapshot.meta.nodeCount, edges: snapshot.meta.edgeCount } : null,
       endpoints: {
         'GET /health': 'liveness + readiness',
-        'GET /api/graph': 'the full code graph (nodes + edges)',
+        'GET /api/graph': 'the code graph; ?summary|type|depth|lean|fields|full project it',
         'GET /api/node/:id': 'a single node with its source',
+        'GET /api/who-renders/:id': 'components that render a node',
+        'GET /api/who-calls/:id': 'symbols that call a node',
+        'GET /api/references/:id': 'references into a node (?types=renders,calls)',
+        'GET /api/blast-radius/:id': 'everything that transitively depends on a node',
+        'GET /api/cycles': 'dependency cycles in the graph',
         'POST /api/reindex': 'force a full re-index',
         'POST /api/knowledge/:id': 'generate a knowledge summary for a node',
         'POST /api/chat': 'ask a question about the codebase',
@@ -86,6 +92,7 @@ export function createIndexerApp(opts: { root: string }): IndexerAppHandle {
     }),
   );
   app.use('/api', graphRouter(graph));
+  app.use('/api', queryRouter(graph));
   app.use('/api', reindexRouter(graph));
   app.use('/api', knowledgeRouter(graph));
 
