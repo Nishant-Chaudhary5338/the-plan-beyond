@@ -3,6 +3,7 @@ import { Node, SyntaxKind, type SourceFile } from 'ts-morph';
 import type { GraphNode, GraphEdge, EdgeType } from '@repo/code-graph-core';
 import { edgeId } from '@repo/code-graph-core';
 import { nameFromFile, type EmittedSymbol } from './symbol-nodes.js';
+import { resolveExport, type ReexportIndex } from './reexport-index.js';
 
 /**
  * Symbol-level resolution table: `fileRelPath -> exportName -> { id, type }`.
@@ -95,21 +96,27 @@ const makeResolver = (
   rel: string,
   bindings: Map<string, Binding>,
   index: SymbolIndex,
+  reexports: ReexportIndex,
 ): Resolver => {
   const lookup = (r: string, n: string): SymbolRef | null =>
     index.get(r)?.get(n) ?? null;
+  // When a direct lookup into the imported module misses, the module is likely a
+  // barrel that re-exports the name from elsewhere — chase it to the true origin.
+  const lookupOrBarrel = (r: string, n: string): SymbolRef | null =>
+    lookup(r, n) ?? resolveExport(reexports, r, n, lookup);
 
   return (name, member) => {
     const b = bindings.get(name);
     if (b) {
       if (b.kind === 'namespace') {
         // Only `ns.Member` is resolvable; a bare namespace identifier is not.
-        return member ? lookup(b.targetRel, member) : null;
+        return member ? lookupOrBarrel(b.targetRel, member) : null;
       }
       // `Default.x` / `Named.x` member access is not a top-level symbol we track.
       if (member) return null;
-      if (b.kind === 'default') return lookup(b.targetRel, nameFromFile(b.targetRel));
-      return lookup(b.targetRel, b.exportName);
+      if (b.kind === 'default')
+        return lookupOrBarrel(b.targetRel, nameFromFile(b.targetRel));
+      return lookupOrBarrel(b.targetRel, b.exportName);
     }
     // Not imported: a symbol declared in this same file (member access on a
     // local value is not a tracked symbol, so require no member).
@@ -144,11 +151,12 @@ export const extractSemanticEdges = (
   symbols: EmittedSymbol[],
   root: string,
   index: SymbolIndex,
+  reexports: ReexportIndex,
 ): GraphEdge[] => {
   if (symbols.length === 0) return [];
 
   const bindings = buildBindings(source, root);
-  const resolve = makeResolver(rel, bindings, index);
+  const resolve = makeResolver(rel, bindings, index, reexports);
 
   const weights = new Map<
     string,
@@ -188,7 +196,14 @@ export const extractSemanticEdges = (
           ref = resolve(expr.getText());
         } else if (Node.isPropertyAccessExpression(expr)) {
           const obj = expr.getExpression();
-          if (Node.isIdentifier(obj)) ref = resolve(obj.getText(), expr.getName());
+          if (Node.isIdentifier(obj)) {
+            ref = resolve(obj.getText(), expr.getName());
+          } else if (Node.isThisExpression(obj)) {
+            // `this.foo()` — resolve `foo` to a same-file symbol only. We do not
+            // attempt cross-file `obj.method()` inference; an un-indexed method
+            // yields nothing rather than a wrong edge.
+            ref = index.get(rel)?.get(expr.getName()) ?? null;
+          }
         }
         if (ref) add(sym.id, ref.id, 'calls');
       }

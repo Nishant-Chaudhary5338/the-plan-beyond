@@ -34,8 +34,14 @@ export interface WsHub {
   close(): void;
 }
 
-export const attachWsHub = (server: Server, graph: GraphService): WsHub => {
-  const wss = new WebSocketServer({ server, path: '/ws' });
+export const attachWsHub = (
+  server: Server,
+  graph: GraphService,
+  // Path the WS endpoint listens on. Defaults to '/ws' for standalone use; a
+  // host app can mount it elsewhere (e.g. '/indexer/ws').
+  path = '/ws',
+): WsHub => {
+  const wss = new WebSocketServer({ server, path });
 
   wss.on('connection', (socket: TrackedSocket) => {
     socket.isAlive = true;

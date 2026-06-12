@@ -17,6 +17,7 @@ import {
   buildSymbolIndex,
   extractSemanticEdges,
 } from './semantic-edges.js';
+import { buildReexportIndex } from './reexport-index.js';
 import { ensureFolderChain } from './folder-tree.js';
 
 export type StructuralResult = {
@@ -323,6 +324,15 @@ export const indexStructure = (
   // and `calls` edges. Runs over the complete symbol table so cross-file
   // references (a component rendering one imported from another file) resolve.
   const symbolIndex = buildSymbolIndex(nodes);
+  // Barrel-chasing index over every loaded source file (reused + reparsed), so a
+  // name imported from a re-export barrel resolves even when the barrel itself
+  // was a cache hit. Mirrors the symbol index's project-wide coverage.
+  const reexportIndex = buildReexportIndex(
+    [...projects.values()].flatMap((p) =>
+      p.getSourceFiles().filter((s) => !s.getFilePath().includes('node_modules')),
+    ),
+    workspace.root,
+  );
   for (const input of semanticInputs) {
     try {
       edges.push(
@@ -332,6 +342,7 @@ export const indexStructure = (
           input.symbols,
           workspace.root,
           symbolIndex,
+          reexportIndex,
         ),
       );
     } catch (err) {

@@ -25,6 +25,7 @@ import {
   buildSymbolIndex,
   extractSemanticEdges,
 } from './structural/semantic-edges.js';
+import { buildReexportIndex } from './structural/reexport-index.js';
 import type { EmittedSymbol } from './structural/symbol-nodes.js';
 import { runTypecheck } from './status/typecheck-runner.js';
 import { mergePackageStatus } from './status/merge-status.js';
@@ -260,6 +261,17 @@ export class IndexerSession {
     // Phase 3 — semantic pass: resolve renders/calls for every re-extracted
     // file against the now-updated symbol table.
     const symbolIndex = buildSymbolIndex(snapshot.nodes);
+    // Re-export barrels are project-wide, so chase them over every live source
+    // file (not just the reparsed ones) — the barrel a changed file imports from
+    // may itself be unchanged. Mirrors the symbol index's whole-snapshot scope.
+    const reexportIndex = buildReexportIndex(
+      [...this.projects.values()].flatMap((p) =>
+        p
+          .getSourceFiles()
+          .filter((s) => !s.getFilePath().includes('node_modules')),
+      ),
+      workspaceRoot,
+    );
     for (const input of semanticInputs) {
       try {
         const semantic = extractSemanticEdges(
@@ -268,6 +280,7 @@ export class IndexerSession {
           input.symbols,
           workspaceRoot,
           symbolIndex,
+          reexportIndex,
         );
         snapshot.edges.push(...semantic);
         patch.upsertEdges.push(...semantic);

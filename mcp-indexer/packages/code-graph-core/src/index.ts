@@ -39,3 +39,25 @@ export {
   functionId,
   edgeId,
 } from './ids';
+export {
+  DEPENDENCY_TYPES,
+  buildReverseIndex,
+  buildForwardIndex,
+  whoRenders,
+  whoCalls,
+  findReferences,
+  blastRadius,
+  findCycles,
+} from './analysis';
+export {
+  DEFAULT_FULL_NODE_THRESHOLD,
+  toLeanNode,
+  summarizeSnapshot,
+  projectGraph,
+} from './projection';
+export type {
+  LeanNode,
+  GraphSummary,
+  ProjectionOptions,
+  ProjectedGraph,
+} from './projection';

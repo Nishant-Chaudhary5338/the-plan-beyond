@@ -2,16 +2,7 @@ import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'node:fs';
 import * as path from 'path';
-import express from 'express';
-import cors from 'cors';
-import type { AsyncSubscription } from '@parcel/watcher';
-import { GraphService } from './graph-service.js';
-import { graphRouter } from './routes/graph.js';
-import { reindexRouter } from './routes/reindex.js';
-import { knowledgeRouter } from './routes/knowledge.js';
-import { attachWsHub, type WsHub } from './ws-hub.js';
-import { startWatcher } from './watcher.js';
-import { errorHandler, notFoundHandler } from './http-utils.js';
+import { createIndexerApp } from './app.js';
 import { killAllClaudeChildren } from './claude-cli.js';
 
 const PORT = Number(process.env.INDEXER_PORT ?? 3002);
@@ -39,59 +30,14 @@ const REPO_ROOT = process.env.INDEXER_ROOT
   ? path.resolve(REPO_ROOT_DIR, process.env.INDEXER_ROOT)
   : REPO_ROOT_DIR;
 
-const graph = new GraphService(REPO_ROOT);
+const handle = createIndexerApp({ root: REPO_ROOT });
 
-// Tracks whether the live-edit watcher is up, surfaced via /health.
-let watcherReady = false;
+const server = createServer(handle.app);
+handle.attachWs(server);
 
-const app = express();
-app.use(cors({ origin: /^http:\/\/localhost:\d+$/ }));
-app.use(express.json({ limit: '256kb' }));
-
-// Friendly root: this is a JSON API with no web UI, so make a browser hit to
-// "/" self-describing instead of a bare 404.
-app.get('/', (_req, res) => {
-  const snapshot = graph.getSnapshot();
-  res.json({
-    service: 'code-intelligence indexer',
-    status: 'ok',
-    root: REPO_ROOT,
-    indexed: snapshot !== null,
-    watching: watcherReady,
-    graph: snapshot ? { nodes: snapshot.meta.nodeCount, edges: snapshot.meta.edgeCount } : null,
-    endpoints: {
-      'GET /health': 'liveness + readiness',
-      'GET /api/graph': 'the full code graph (nodes + edges)',
-      'GET /api/node/:id': 'a single node with its source',
-      'POST /api/reindex': 'force a full re-index',
-      'POST /api/knowledge/:id': 'generate a knowledge summary for a node',
-      'POST /api/chat': 'ask a question about the codebase',
-      'WS /ws': 'live graph patches as files change',
-    },
-  });
-});
-
-app.get('/health', (_req, res) =>
-  res.json({
-    status: 'ok',
-    port: PORT,
-    indexed: graph.getSnapshot() !== null,
-    watching: watcherReady,
-  }),
-);
-app.use('/api', graphRouter(graph));
-app.use('/api', reindexRouter(graph));
-app.use('/api', knowledgeRouter(graph));
-
-// 404 + terminal error middleware must be registered last.
-app.use(notFoundHandler);
-app.use(errorHandler);
-
-const server = createServer(app);
-const wsHub: WsHub = attachWsHub(server, graph);
-
-// Captured for graceful shutdown.
-let watcherSub: AsyncSubscription | null = null;
+// Stop fn for the live-edit watcher (also closes the WS hub); set once the
+// server is up and the boot index has run.
+let stopWatching: (() => void) | null = null;
 let shuttingDown = false;
 
 const shutdown = async (signal: string): Promise<void> => {
@@ -99,11 +45,10 @@ const shutdown = async (signal: string): Promise<void> => {
   shuttingDown = true;
   console.log(`\n${signal} received — shutting down…`);
   try {
-    if (watcherSub) await watcherSub.unsubscribe();
+    if (stopWatching) stopWatching();
   } catch (err) {
     console.error('watcher unsubscribe error:', err);
   }
-  wsHub.close();
   killAllClaudeChildren();
   server.close(() => {
     console.log('   ✓ server closed');
@@ -120,20 +65,10 @@ server.listen(PORT, HOST, () => {
   console.log(`\n🔭 Indexer server on http://${HOST}:${PORT}`);
   console.log(`   root: ${REPO_ROOT}`);
   console.log('   indexing…');
-  const startedAt = Date.now();
-  void graph
-    .indexFull()
-    .then(async (snapshot) => {
-      console.log(
-        `   ✓ ${snapshot.meta.nodeCount} nodes · ${snapshot.meta.edgeCount} edges in ${Date.now() - startedAt}ms`,
-      );
-      console.log('   GET  /api/graph · GET /api/node/:id · POST /api/reindex · WS /ws');
-      console.log('   enriching status in background…');
-      await graph.enrichStatusProgressive();
-      console.log('   ✓ status enrichment complete');
-      watcherSub = await startWatcher(REPO_ROOT, graph);
-      watcherReady = true;
-      console.log('   👀 watching for changes — edit a file to see it update live\n');
+  void handle
+    .indexOnBoot()
+    .then(() => {
+      stopWatching = handle.startWatching();
     })
     .catch((err) => {
       console.error('initial index failed:', err);

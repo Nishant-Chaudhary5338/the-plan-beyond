@@ -3,9 +3,11 @@ import { Project } from 'ts-morph';
 import type { GraphEdge, GraphNode } from '@repo/code-graph-core';
 import { extractSymbolNodes } from './symbol-nodes.js';
 import { buildSymbolIndex, extractSemanticEdges } from './semantic-edges.js';
+import { buildReexportIndex } from './reexport-index.js';
 
 // Build an in-memory project from the given files, extract symbols for all of
-// them, then resolve renders/calls edges for `entry` against the full index.
+// them, then resolve renders/calls edges for `entry` against the full index +
+// a project-wide re-export (barrel) index.
 const semanticFor = (
   files: Record<string, string>,
   entry: string,
@@ -26,8 +28,19 @@ const semanticFor = (
     symbolsByFile[name] = r.symbols;
   }
   const index = buildSymbolIndex(allNodes);
+  const reexports = buildReexportIndex(
+    project.getSourceFiles().filter((s) => !s.getFilePath().includes('node_modules')),
+    '/repo',
+  );
   const sf = project.getSourceFileOrThrow(`/repo/${entry}`);
-  return extractSemanticEdges(sf, entry, symbolsByFile[entry] ?? [], '/repo', index);
+  return extractSemanticEdges(
+    sf,
+    entry,
+    symbolsByFile[entry] ?? [],
+    '/repo',
+    index,
+    reexports,
+  );
 };
 
 const renders = (edges: GraphEdge[]): GraphEdge[] =>
@@ -178,6 +191,139 @@ describe('extractSemanticEdges — calls', () => {
       },
       'a.ts',
     );
+    expect(calls(edges)).toHaveLength(0);
+  });
+});
+
+describe('extractSemanticEdges — re-export barrels', () => {
+  it('resolves a render through a single-hop barrel (export { Button } from)', () => {
+    const edges = semanticFor(
+      {
+        'App.tsx': `import { Button } from './ui';
+          export const App = () => <Button/>;`,
+        'ui.ts': `export { Button } from './Button';`,
+        'Button.tsx': `export const Button = () => <button/>;`,
+      },
+      'App.tsx',
+    );
+    expect(renders(edges)[0]?.target).toBe('cmp:Button.tsx#Button');
+  });
+
+  it('resolves a render through an aliased single-hop barrel', () => {
+    const edges = semanticFor(
+      {
+        'App.tsx': `import { Btn } from './ui';
+          export const App = () => <Btn/>;`,
+        'ui.ts': `export { Button as Btn } from './Button';`,
+        'Button.tsx': `export const Button = () => <button/>;`,
+      },
+      'App.tsx',
+    );
+    expect(renders(edges)[0]?.target).toBe('cmp:Button.tsx#Button');
+  });
+
+  it('resolves a render through a two-hop barrel (index → sub-barrel)', () => {
+    const edges = semanticFor(
+      {
+        'App.tsx': `import { Button } from './index';
+          export const App = () => <Button/>;`,
+        'index.ts': `export { Button } from './ui';`,
+        'ui.ts': `export { Button } from './Button';`,
+        'Button.tsx': `export const Button = () => <button/>;`,
+      },
+      'App.tsx',
+    );
+    expect(renders(edges)[0]?.target).toBe('cmp:Button.tsx#Button');
+  });
+
+  it('resolves a default re-export (export { default as X } from)', () => {
+    const edges = semanticFor(
+      {
+        'App.tsx': `import { Sidebar } from './ui';
+          export const App = () => <Sidebar/>;`,
+        'ui.ts': `export { default as Sidebar } from './Sidebar';`,
+        // anonymous default -> named "Sidebar" from the filename
+        'Sidebar.tsx': `export default () => <aside/>;`,
+      },
+      'App.tsx',
+    );
+    expect(renders(edges)[0]?.target).toBe('cmp:Sidebar.tsx#Sidebar');
+  });
+
+  it('resolves a render through a star re-export (export * from)', () => {
+    const edges = semanticFor(
+      {
+        'App.tsx': `import { Card } from './ui';
+          export const App = () => <Card/>;`,
+        'ui.ts': `export * from './Card';`,
+        'Card.tsx': `export const Card = () => <article/>;`,
+      },
+      'App.tsx',
+    );
+    expect(renders(edges)[0]?.target).toBe('cmp:Card.tsx#Card');
+  });
+
+  it('terminates on a re-export cycle without looping or throwing', () => {
+    const edges = semanticFor(
+      {
+        'App.tsx': `import { Ghost } from './a';
+          export const App = () => <Ghost/>;`,
+        // a and b re-export from each other; Ghost is declared nowhere.
+        'a.ts': `export * from './b';`,
+        'b.ts': `export * from './a';`,
+      },
+      'App.tsx',
+    );
+    // No real Ghost node exists, so nothing resolves — and crucially no hang.
+    expect(renders(edges)).toHaveLength(0);
+  });
+});
+
+describe('extractSemanticEdges — this.method() calls', () => {
+  it('emits a calls edge for this.method() to a same-file symbol', () => {
+    const edges = semanticFor(
+      {
+        'Widget.tsx': `import { Component } from 'react';
+          export function compute() { return 1; }
+          export class Widget extends Component {
+            render() { return <div>{this.compute()}</div>; }
+          }`,
+      },
+      'Widget.tsx',
+    );
+    expect(calls(edges)).toContainEqual(
+      expect.objectContaining({
+        source: 'cmp:Widget.tsx#Widget',
+        target: 'fn:Widget.tsx#compute',
+      }),
+    );
+  });
+
+  it('does not emit a calls edge for this.method() with no indexed same-file symbol', () => {
+    const edges = semanticFor(
+      {
+        'Widget.tsx': `import { Component } from 'react';
+          export class Widget extends Component {
+            // private() is a class method, not an indexed top-level symbol.
+            render() { return <div>{this.private()}</div>; }
+          }`,
+      },
+      'Widget.tsx',
+    );
+    expect(calls(edges)).toHaveLength(0);
+  });
+
+  it('emits nothing for an unresolvable obj.method() on a local variable', () => {
+    const edges = semanticFor(
+      {
+        'a.ts': `export const run = () => {
+            const svc = makeService();
+            svc.fetch();
+          };`,
+      },
+      'a.ts',
+    );
+    // `svc` is a local non-indexed value; no cross-file inference in v1.
     expect(calls(edges)).toHaveLength(0);
   });
 });

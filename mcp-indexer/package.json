@@ -18,12 +18,14 @@
     "serve": "pnpm --filter indexer-server start",
     "index:app": "node tools/code-indexer/build/code-indexer/src/cli.js index --root ../app",
     "serve:app": "INDEXER_ROOT=../app pnpm --filter indexer-server start",
-    "ui": "pnpm --filter code-graph dev"
+    "ui": "pnpm --filter code-graph dev",
+    "prove": "tsx tools/code-indexer/scripts/prove-any-repo.ts"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "eslint": "^9.39.4",
     "prettier": "^3.5.0",
+    "tsx": "^4.22.4",
     "turbo": "^2.8.20"
   }
 }

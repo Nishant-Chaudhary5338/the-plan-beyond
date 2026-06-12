@@ -14,3 +14,7 @@ build
 # env
 .env
 *.local
+
+# prove-any-repo harness: cloned corpus + raw results (keep PROOF_RESULTS.md committable)
+tools/code-indexer/.proof-cache/
+tools/code-indexer/scripts/PROOF_RESULTS.json
