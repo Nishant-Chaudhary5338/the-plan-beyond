@@ -5,12 +5,20 @@ import {
   rootId,
   type GraphIndex,
 } from '../lib/graph-model';
-import { blastRadius, findCycles } from '../lib/analysis';
+import {
+  blastRadius,
+  findCycles,
+  whoRenders,
+  whoCalls,
+  findReferences,
+} from '../lib/analysis';
 import { fetchGraph, postKnowledge } from '../api/client';
 import { connectWs } from '../api/ws';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 export type ColorMode = 'type' | 'health';
+/** A reverse-graph question, surfaced from the detail panel and painted on the graph. */
+export type QueryKind = 'renders' | 'calls' | 'references' | 'blast-radius';
 
 type GraphStore = {
   snapshot: GraphSnapshot | null;
@@ -21,7 +29,9 @@ type GraphStore = {
   error: string | null;
   statusVersion: number;
   knowledgeLoadingId: string | null;
+  /** Highlighted node ids for the active reverse-query (and which query it is). */
   impactSet: Set<string> | null;
+  highlightKind: QueryKind | null;
   cycleCount: number;
   colorMode: ColorMode;
   showOnboarding: boolean;
@@ -40,8 +50,27 @@ type GraphStore = {
   focusOn: (id: string) => void;
   applyPatch: (patch: GraphPatch) => void;
   generateKnowledge: (id: string) => Promise<void>;
-  showImpact: (id: string) => void;
-  clearImpact: () => void;
+  /** Run a reverse-query for a node and paint the matching nodes. */
+  runQuery: (kind: QueryKind, id: string) => void;
+  clearQuery: () => void;
+};
+
+/** Resolve a reverse-query to the set of node ids it matches. */
+const queryResultIds = (
+  kind: QueryKind,
+  edges: GraphSnapshot['edges'],
+  id: string,
+): Set<string> => {
+  switch (kind) {
+    case 'blast-radius':
+      return blastRadius(edges, id);
+    case 'renders':
+      return new Set(whoRenders(edges, id).map((e) => e.source));
+    case 'calls':
+      return new Set(whoCalls(edges, id).map((e) => e.source));
+    case 'references':
+      return new Set(findReferences(edges, id).map((e) => e.source));
+  }
 };
 
 export const useGraphStore = create<GraphStore>((set, get) => ({
@@ -54,6 +83,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   statusVersion: 0,
   knowledgeLoadingId: null,
   impactSet: null,
+  highlightKind: null,
   cycleCount: 0,
   colorMode: 'type',
   showOnboarding:
@@ -66,7 +96,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   recenter: () => set((s) => ({ fitSignal: s.fitSignal + 1 })),
   goHome: () => {
     const root = get().snapshot ? rootId(get().snapshot!) : null;
-    if (root) set({ focusId: root, selectedId: null, impactSet: null });
+    if (root) set({ focusId: root, selectedId: null, impactSet: null, highlightKind: null });
   },
   dismissOnboarding: () => {
     if (typeof localStorage !== 'undefined') {
@@ -105,19 +135,24 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     }
   },
 
-  drillInto: (id) => set({ focusId: id, selectedId: id, impactSet: null }),
-  drillTo: (id) => set({ focusId: id, selectedId: null, impactSet: null }),
+  drillInto: (id) =>
+    set({ focusId: id, selectedId: id, impactSet: null, highlightKind: null }),
+  drillTo: (id) =>
+    set({ focusId: id, selectedId: null, impactSet: null, highlightKind: null }),
   select: (id) => set({ selectedId: id }),
   focusOn: (id) => {
     const node = get().index?.nodeById.get(id);
     set({ focusId: node?.parentId ?? get().focusId, selectedId: id });
   },
-  showImpact: (id) => {
+  runQuery: (kind, id) => {
     const { index } = get();
     if (!index) return;
-    set({ impactSet: blastRadius(index.crossEdges, id) });
+    set({
+      impactSet: queryResultIds(kind, index.crossEdges, id),
+      highlightKind: kind,
+    });
   },
-  clearImpact: () => set({ impactSet: null }),
+  clearQuery: () => set({ impactSet: null, highlightKind: null }),
 
   applyPatch: (patch) => {
     const { index } = get();

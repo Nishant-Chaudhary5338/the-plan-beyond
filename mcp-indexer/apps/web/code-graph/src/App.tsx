@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { Boxes, RefreshCw, Loader2, Search, FolderOpen } from 'lucide-react';
 import { useGraphStore } from './store/graphStore';
 import { pathToRoot } from './lib/graph-model';
-import { blastRadius } from './lib/analysis';
+import { blastRadius, whoRenders, whoCalls, findReferences } from './lib/analysis';
 import { GraphCanvas } from './components/Graph/GraphCanvas';
 import { Breadcrumbs } from './components/DrillDown/Breadcrumbs';
-import { DetailPanel } from './components/DetailPanel/DetailPanel';
+import { DetailPanel, type QueryItem } from './components/DetailPanel/DetailPanel';
 import { Legend } from './components/Toolbar/Legend';
 import { ModeToggle } from './components/Toolbar/ModeToggle';
 import { ViewControls } from './components/Toolbar/ViewControls';
@@ -35,8 +35,9 @@ export const App = (): React.ReactElement => {
     select,
     focusOn,
     generateKnowledge,
-    showImpact,
-    clearImpact,
+    runQuery,
+    clearQuery,
+    highlightKind,
     setColorMode,
     dismissOnboarding,
     openOnboarding,
@@ -121,9 +122,14 @@ export const App = (): React.ReactElement => {
 
   const breadcrumbPath = pathToRoot(index, focusId);
   const selectedNode = selectedId ? index.nodeById.get(selectedId) : undefined;
-  const impactCount = selectedNode
-    ? blastRadius(index.crossEdges, selectedNode.id).size
-    : 0;
+  const queries: QueryItem[] = selectedNode
+    ? [
+        { kind: 'renders', label: 'Rendered by', count: whoRenders(index.crossEdges, selectedNode.id).length },
+        { kind: 'calls', label: 'Called by', count: whoCalls(index.crossEdges, selectedNode.id).length },
+        { kind: 'references', label: 'Referenced by', count: findReferences(index.crossEdges, selectedNode.id).length },
+        { kind: 'blast-radius', label: 'Blast radius', count: blastRadius(index.crossEdges, selectedNode.id).size },
+      ]
+    : [];
 
   return (
     <div className="flex h-full flex-col">
@@ -218,11 +224,10 @@ export const App = (): React.ReactElement => {
             node={selectedNode}
             childCount={index.childrenOf.get(selectedNode.id)?.length ?? 0}
             knowledgeLoading={knowledgeLoadingId === selectedNode.id}
-            impactCount={impactCount}
-            impactActive={impactSet !== null}
-            onToggleImpact={() =>
-              impactSet ? clearImpact() : showImpact(selectedNode.id)
-            }
+            queries={queries}
+            activeKind={highlightKind}
+            onRunQuery={(kind) => runQuery(kind, selectedNode.id)}
+            onClearQuery={clearQuery}
             onGenerateKnowledge={() => void generateKnowledge(selectedNode.id)}
             onClose={() => select(null)}
           />
