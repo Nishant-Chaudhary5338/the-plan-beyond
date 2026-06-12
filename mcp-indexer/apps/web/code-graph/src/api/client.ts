@@ -9,7 +9,15 @@ export const fetchGraph = async (): Promise<GraphSnapshot> => {
     throw new Error(`Failed to load graph (${res.status})`);
   }
   const raw = (await res.json()) as unknown;
-  return GraphSnapshot.parse(raw);
+  const snapshot = GraphSnapshot.parse(raw);
+  console.log(
+    '[code-graph] graph loaded:',
+    snapshot.nodes.length,
+    'nodes,',
+    snapshot.edges.length,
+    'edges',
+  );
+  return snapshot;
 };
 
 export const postKnowledge = async (

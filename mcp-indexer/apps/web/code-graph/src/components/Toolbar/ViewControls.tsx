@@ -1,4 +1,5 @@
 import { Home, Maximize2, HelpCircle } from 'lucide-react';
+import { ExportMenu } from './ExportMenu';
 
 type ViewControlsProps = {
   onHome: () => void;
@@ -25,5 +26,6 @@ export const ViewControls = ({
     <button type="button" onClick={onHelp} aria-label="Show tips" className={BTN}>
       <HelpCircle className="h-4 w-4" />
     </button>
+    <ExportMenu />
   </div>
 );

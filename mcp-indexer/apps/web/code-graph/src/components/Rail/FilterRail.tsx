@@ -155,6 +155,8 @@ export const FilterRail = (): React.ReactElement => {
   const setColorMode = useGraphStore((s) => s.setColorMode);
   const renderMode = useGraphStore((s) => s.renderMode);
   const setRenderMode = useGraphStore((s) => s.setRenderMode);
+  const theme = useGraphStore((s) => s.theme);
+  const setTheme = useGraphStore((s) => s.setTheme);
   const collapsed = useGraphStore((s) => s.railCollapsed);
   const toggleRail = useGraphStore((s) => s.toggleRail);
 
@@ -226,6 +228,18 @@ export const FilterRail = (): React.ReactElement => {
             ]}
             value={colorMode}
             onChange={setColorMode}
+          />
+        </Section>
+
+        <Section title="Theme">
+          <Segmented
+            groupId="theme"
+            options={[
+              ['dark', 'Dark'],
+              ['light', 'Light'],
+            ]}
+            value={theme}
+            onChange={setTheme}
           />
         </Section>
 

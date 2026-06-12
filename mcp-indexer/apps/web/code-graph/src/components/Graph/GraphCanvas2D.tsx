@@ -160,9 +160,16 @@ export const GraphCanvas2D = ({
     return id === hoverId || hovered.has(id);
   };
 
+  // Only dim into highlight mode if a match is actually visible (see GraphCanvas).
+  const impactVisible = useMemo(
+    () => !!impactSet && data.nodes.some((n) => impactSet.has(n.id)),
+    [impactSet, data],
+  );
+
   const colorFor = (node: ForceNode): string => {
     if (node.id === selectedId) return SELECTED_COLOR;
-    if (impactSet) return impactSet.has(node.id) ? highlightColor : DIMMED_COLOR;
+    if (impactSet && impactVisible)
+      return impactSet.has(node.id) ? highlightColor : DIMMED_COLOR;
     if (!isHighlit(node.id)) return DIMMED_COLOR;
     if (colorMode === 'health') return HEALTH_COLOR[node.status.health];
     return TYPE_COLOR[node.type];

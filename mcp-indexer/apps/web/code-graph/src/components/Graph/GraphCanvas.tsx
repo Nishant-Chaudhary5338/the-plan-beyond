@@ -223,9 +223,18 @@ export const GraphCanvas = ({
     return id === hoverId || hovered.has(id);
   };
 
+  // Only enter "highlight" mode when at least one match is actually in view —
+  // otherwise a cross-level query (the match lives at another drill depth) would
+  // dim the whole graph to a confusing void. The panel still reports the count.
+  const impactVisible = useMemo(
+    () => !!impactSet && data.nodes.some((n) => impactSet.has(n.id)),
+    [impactSet, data],
+  );
+
   const colorFor = (node: ForceNode): string => {
     if (node.id === selectedId) return SELECTED_COLOR;
-    if (impactSet) return impactSet.has(node.id) ? highlightColor : DIMMED_COLOR;
+    if (impactSet && impactVisible)
+      return impactSet.has(node.id) ? highlightColor : DIMMED_COLOR;
     if (!isHighlit(node.id)) return DIMMED_COLOR;
     if (colorMode === 'health') return HEALTH_COLOR[node.status.health];
     return TYPE_COLOR[node.type];

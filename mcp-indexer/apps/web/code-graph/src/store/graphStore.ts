@@ -18,6 +18,7 @@ import { connectWs } from '../api/ws';
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 export type ColorMode = 'type' | 'health';
 export type RenderMode = '2d' | '3d';
+export type Theme = 'dark' | 'light';
 
 // --- localStorage-backed UI preference persistence -------------------------
 // Survives reloads. Every access is guarded (SSR / private mode) and wrapped in
@@ -28,6 +29,7 @@ const PREF_KEYS = {
   railCollapsed: 'cg-rail-collapsed',
   hiddenTypes: 'cg-hidden-types',
   hiddenEdges: 'cg-hidden-edges',
+  theme: 'cg-theme',
 } as const;
 
 /** Read a raw localStorage string, mapping it through `parse` and falling back on any failure. */
@@ -58,6 +60,21 @@ const parseStringSet = <T extends string>(raw: string): Set<T> => {
   if (!Array.isArray(parsed)) throw new Error('not an array');
   return new Set(parsed.filter((v): v is T => typeof v === 'string'));
 };
+/** The persisted theme, falling back to the dark default on any failure. */
+const readTheme = (): Theme =>
+  readPref<Theme>(PREF_KEYS.theme, 'dark', (raw) =>
+    raw === 'dark' || raw === 'light' ? raw : 'dark',
+  );
+
+/** Paint the theme onto <html> so the CSS `[data-theme]` blocks recolor the chrome. */
+const applyTheme = (theme: Theme): void => {
+  if (typeof document === 'undefined') return;
+  document.documentElement.setAttribute('data-theme', theme);
+};
+
+// Restore the persisted theme before first paint so there's no dark→light flash.
+applyTheme(readTheme());
+
 /** A reverse-graph question, surfaced from the detail panel and painted on the graph. */
 export type QueryKind = 'renders' | 'calls' | 'references' | 'blast-radius';
 
@@ -76,6 +93,7 @@ type GraphStore = {
   cycleCount: number;
   colorMode: ColorMode;
   renderMode: RenderMode;
+  theme: Theme;
   /** Node types hidden via the filter rail. */
   hiddenTypes: Set<NodeType>;
   /** Edge types hidden via the filter rail. */
@@ -88,6 +106,7 @@ type GraphStore = {
   load: () => Promise<void>;
   setColorMode: (mode: ColorMode) => void;
   setRenderMode: (mode: RenderMode) => void;
+  setTheme: (theme: Theme) => void;
   toggleType: (t: NodeType) => void;
   toggleEdge: (e: string) => void;
   toggleRail: () => void;
@@ -142,6 +161,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   renderMode: readPref<RenderMode>(PREF_KEYS.renderMode, '3d', (raw) =>
     raw === '2d' || raw === '3d' ? raw : '3d',
   ),
+  theme: readTheme(),
   hiddenTypes: readPref<Set<NodeType>>(
     PREF_KEYS.hiddenTypes,
     new Set(),
@@ -168,6 +188,11 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   setRenderMode: (mode) => {
     writePref(PREF_KEYS.renderMode, mode);
     set({ renderMode: mode });
+  },
+  setTheme: (theme) => {
+    writePref(PREF_KEYS.theme, theme);
+    applyTheme(theme);
+    set({ theme });
   },
   toggleType: (t) =>
     set((s) => {
