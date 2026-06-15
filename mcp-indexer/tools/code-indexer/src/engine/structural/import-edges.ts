@@ -44,7 +44,12 @@ export const extractImportEdges = (
   source: SourceFile,
   relPath: string,
   root: string,
-  opts: { externals?: boolean; workspacePackages?: ReadonlySet<string> } = {},
+  opts: {
+    externals?: boolean;
+    workspacePackages?: ReadonlySet<string>;
+    /** tsconfig `paths` prefixes (e.g. `@/`, `~/`) that resolve to LOCAL files. */
+    aliasPrefixes?: readonly string[];
+  } = {},
 ): GraphEdge[] => {
   const sourceId = fileId(relPath);
 
@@ -61,39 +66,56 @@ export const extractImportEdges = (
   const add = (targetRel: string, type: EdgeType): void =>
     addTarget(fileId(targetRel), type);
 
-  // Resolve one module reference: an internal file becomes a file→file edge; an
-  // unresolved bare specifier becomes a file→external (node_modules) edge when
-  // `externals` is on. Returns nothing for relative imports that don't resolve.
+  const prefixes = opts.aliasPrefixes ?? [];
+  // Local = a relative import or a tsconfig path alias. ONLY these need ts-morph's
+  // module resolution (they map to files inside the workspace, which is cheap).
+  // A bare package specifier is decided statically below — crucially WITHOUT
+  // calling getModuleSpecifierSourceFile, which would walk node_modules on disk
+  // (the dominant cost on a big monorepo).
+  const isLocal = (spec: string): boolean =>
+    spec.startsWith('.') || prefixes.some((p) => spec === p || spec.startsWith(p));
+
+  // `resolve` lazily resolves a LOCAL specifier to its in-workspace source file.
   const record = (
-    resolved: SourceFile | undefined,
+    resolve: () => SourceFile | undefined,
     typeOnly: boolean,
     specifier: string,
   ): void => {
-    const targetRel = resolved ? toRel(root, resolved) : null;
-    if (targetRel) {
-      add(targetRel, typeOnly ? 'references' : 'imports');
+    if (isLocal(specifier)) {
+      const targetRel = (() => {
+        const r = resolve();
+        return r ? toRel(root, r) : null;
+      })();
+      if (targetRel) add(targetRel, typeOnly ? 'references' : 'imports');
       return;
     }
+    // Bare specifier → external (node_modules), decided without disk resolution.
     if (!opts.externals) return;
     const pkg = externalPackage(specifier);
     // A workspace package (monorepo sibling) is NOT external — it lives in the
-    // graph as its own package node, and the package-level `depends-on` edge
-    // already records the dependency. Skip it so it isn't mistaken for a
-    // node_modules leaf when ts-morph resolves it through a workspace symlink.
+    // graph as its own package node + a package-level `depends-on` edge. Skip it.
     if (!pkg || opts.workspacePackages?.has(pkg)) return;
     addTarget(externalId(pkg), typeOnly ? 'references' : 'imports');
   };
 
   // 1. Static imports.
   for (const decl of source.getImportDeclarations()) {
-    record(decl.getModuleSpecifierSourceFile(), decl.isTypeOnly(), decl.getModuleSpecifierValue());
+    record(
+      () => decl.getModuleSpecifierSourceFile(),
+      decl.isTypeOnly(),
+      decl.getModuleSpecifierValue(),
+    );
   }
 
   // 2. Re-export barrels: `export { x } from './x'`, `export * from './x'`.
   for (const decl of source.getExportDeclarations()) {
     const spec = decl.getModuleSpecifier();
     if (!spec) continue; // local re-export, no specifier
-    record(decl.getModuleSpecifierSourceFile(), decl.isTypeOnly(), spec.getLiteralValue());
+    record(
+      () => decl.getModuleSpecifierSourceFile(),
+      decl.isTypeOnly(),
+      spec.getLiteralValue(),
+    );
   }
 
   // 3. Dynamic imports: `import('./x')`. ts-morph exposes the specifier source
@@ -103,8 +125,7 @@ export const extractImportEdges = (
     const arg = call.getArguments()[0];
     if (!arg || !Node.isStringLiteral(arg)) continue;
     const specifier = arg.getLiteralValue();
-    const resolved = resolveSpecifier(source, specifier);
-    record(resolved, false, specifier);
+    record(() => resolveSpecifier(source, specifier), false, specifier);
   }
 
   return [...weights.values()].map(({ targetId, type, weight }) => ({

@@ -18,6 +18,7 @@ import { indexMacro } from './structural/macro-nodes.js';
 import {
   indexStructure,
   extractFile,
+  aliasPrefixesOf,
   buildReusableSubgraph,
   type ReusableSubgraph,
 } from './structural/micro-symbols.js';
@@ -231,6 +232,7 @@ export class IndexerSession {
           folders,
           folderEdges,
           workspacePackages,
+          aliasPrefixesOf(project),
         );
         snapshot.nodes.push(...result.nodes);
         snapshot.edges.push(...result.edges);

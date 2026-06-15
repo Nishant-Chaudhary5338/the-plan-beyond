@@ -118,6 +118,18 @@ const buildPackageProject = (
   return project;
 };
 
+/**
+ * tsconfig `paths` aliases reduced to match-prefixes (`@/*` → `@/`, `~/*` → `~/`).
+ * An import starting with one of these resolves to a LOCAL file, so it must go
+ * through ts-morph resolution rather than being treated as an external package.
+ */
+export const aliasPrefixesOf = (project: Project): string[] => {
+  const paths = project.getCompilerOptions().paths ?? {};
+  return Object.keys(paths).map((key) =>
+    key.endsWith('/*') ? key.slice(0, -1) : key.endsWith('*') ? key.slice(0, -1) : key,
+  );
+};
+
 // Drop files beyond the configured budget so a pathological package can't make
 // indexing unbounded. We keep the lexically-first files for determinism.
 const enforceFileBudget = (
@@ -181,6 +193,7 @@ export const extractFile = (
   folders: Map<string, GraphNode>,
   folderEdges: GraphEdge[],
   workspacePackages: ReadonlySet<string>,
+  aliasPrefixes: readonly string[],
 ): FileExtraction => {
   const ownerId = ownerNodeId(pkg);
   const contentHash = hashContent(source.getFullText());
@@ -215,6 +228,7 @@ export const extractFile = (
     ...extractImportEdges(source, rel, workspaceRoot, {
       externals: true,
       workspacePackages,
+      aliasPrefixes,
     }),
   ];
 
@@ -261,10 +275,18 @@ export const indexStructure = (
   // imports (e.g. `@repo/ui`) from being misclassified as external node_modules.
   const workspacePackages = new Set(workspace.packages.map((p) => p.name));
 
+  // Opt-in phase timing (INDEXER_TIMING=1) to diagnose where a slow index spends
+  // its time — project setup vs file extraction vs the semantic pass.
+  const timing = process.env.INDEXER_TIMING === '1';
+  let tProjects = 0;
+  let tExtract = 0;
+
   for (const pkg of workspace.packages) {
     let project: Project;
     try {
+      const t = Date.now();
       project = buildPackageProject(pkg, config);
+      tProjects += Date.now() - t;
     } catch (err) {
       console.warn(
         `[code-indexer] failed to set up project for ${pkg.name}: ${(err as Error).message}`,
@@ -272,6 +294,7 @@ export const indexStructure = (
       continue;
     }
     projects.set(pkg.name, project);
+    const aliasPrefixes = aliasPrefixesOf(project);
 
     for (const source of project.getSourceFiles()) {
       const abs = source.getFilePath();
@@ -302,6 +325,7 @@ export const indexStructure = (
       }
 
       try {
+        const tx = Date.now();
         const result = extractFile(
           source,
           rel,
@@ -310,7 +334,9 @@ export const indexStructure = (
           folders,
           edges,
           workspacePackages,
+          aliasPrefixes,
         );
+        tExtract += Date.now() - tx;
         nodes.push(...result.nodes);
         edges.push(...result.edges);
         semanticInputs.push({ rel, source, symbols: result.symbols });
@@ -336,6 +362,7 @@ export const indexStructure = (
   // Barrel-chasing index over every loaded source file (reused + reparsed), so a
   // name imported from a re-export barrel resolves even when the barrel itself
   // was a cache hit. Mirrors the symbol index's project-wide coverage.
+  const tSem = Date.now();
   const reexportIndex = buildReexportIndex(
     [...projects.values()].flatMap((p) =>
       p.getSourceFiles().filter((s) => !s.getFilePath().includes('node_modules')),
@@ -359,6 +386,13 @@ export const indexStructure = (
         `[code-indexer] semantic edges skipped ${input.rel}: ${(err as Error).message}`,
       );
     }
+  }
+
+  if (timing) {
+    console.warn(
+      `[timing] projects(setup+addFiles)=${tProjects}ms · extract(parse+symbols+imports)=${tExtract}ms · ` +
+        `semantic(renders/calls)=${Date.now() - tSem}ms · files=${reparsedFiles} reused=${reusedFiles}`,
+    );
   }
 
   // Materialize a leaf node for every external (node_modules) package referenced
