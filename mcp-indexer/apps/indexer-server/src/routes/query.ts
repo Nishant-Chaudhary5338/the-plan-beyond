@@ -5,6 +5,7 @@ import {
   findReferences,
   blastRadius,
   findCycles,
+  findOrphans,
   searchNodes,
   buildContextPack,
   nodePath,
@@ -241,6 +242,18 @@ export const queryRouter = (graph: GraphService): Router => {
       .buildEmbeddings()
       .then((result) => res.json(result))
       .catch((err: unknown) => res.status(500).json({ error: (err as Error).message }));
+  });
+
+  /** Dead-code candidates: nodes with no incoming dependency edge. */
+  router.get('/orphans', (req, res) => {
+    const snapshot = graph.getSnapshot();
+    if (!snapshot) {
+      res.status(503).json({ error: 'Graph not indexed yet' });
+      return;
+    }
+    const includeEntryPoints = req.query.includeEntryPoints === '1' || req.query.includeEntryPoints === 'true';
+    const orphans = findOrphans(snapshot.nodes, snapshot.edges, { includeEntryPoints });
+    res.json({ count: orphans.length, orphans });
   });
 
   /** All dependency cycles in the graph, each as an ordered list of node refs. */

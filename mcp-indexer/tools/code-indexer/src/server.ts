@@ -10,6 +10,7 @@ import {
   queryFindReferences,
   queryBlastRadius,
   queryFindCycles,
+  queryFindOrphans,
   queryGraph,
   querySearchNodes,
   queryContextPack,
@@ -138,6 +139,19 @@ export class CodeIndexerServer extends McpServerBase {
       'Find dependency cycles in the graph (import/render/call cycles)',
       { type: 'object', properties: { ...rootProp } },
       this.handleFindCycles.bind(this),
+    );
+
+    this.addTool(
+      'find_orphans',
+      'Dead-code candidates: exported files/components/functions that nothing imports, renders, or calls. Excludes entry points (index/main/App/config) unless includeEntryPoints is set. Heuristic — review, do not auto-delete.',
+      {
+        type: 'object',
+        properties: {
+          ...rootProp,
+          includeEntryPoints: { type: 'boolean', description: 'Also include index/main/App/config files (default false)' },
+        },
+      },
+      this.handleFindOrphans.bind(this),
     );
 
     this.addTool(
@@ -281,6 +295,15 @@ export class CodeIndexerServer extends McpServerBase {
     try {
       const root = resolveRoot((args as IndexArgs).root);
       return this.success({ ...queryFindCycles(root) });
+    } catch (err) {
+      return this.error(err);
+    }
+  }
+
+  private async handleFindOrphans(args: unknown): Promise<ToolResult> {
+    try {
+      const { root, includeEntryPoints } = args as { root?: string; includeEntryPoints?: boolean };
+      return this.success({ ...queryFindOrphans(resolveRoot(root), includeEntryPoints) });
     } catch (err) {
       return this.error(err);
     }

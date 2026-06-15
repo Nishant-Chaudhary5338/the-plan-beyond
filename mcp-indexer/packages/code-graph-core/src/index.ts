@@ -50,7 +50,9 @@ export {
   findReferences,
   blastRadius,
   findCycles,
+  findOrphans,
 } from './analysis';
+export type { OrphanNode } from './analysis';
 export {
   DEFAULT_FULL_NODE_THRESHOLD,
   toLeanNode,

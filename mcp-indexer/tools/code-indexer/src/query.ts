@@ -4,6 +4,7 @@ import {
   findReferences,
   blastRadius,
   findCycles,
+  findOrphans,
   projectGraph,
   summarizeSnapshot,
   searchNodes,
@@ -169,6 +170,21 @@ export const queryFindCycles = (root: string): CyclesResult => {
     return enriched;
   });
   return { count: cycles.length, cycles };
+};
+
+export interface OrphansResult {
+  count: number;
+  orphans: Array<{ id: string; name: string; type: NodeType; path: string | null }>;
+}
+
+/** Dead-code candidates: nodes with no incoming dependency edge. */
+export const queryFindOrphans = (
+  root: string,
+  includeEntryPoints = false,
+): OrphansResult => {
+  const snapshot = loadSnapshot(root);
+  const orphans = findOrphans(snapshot.nodes, snapshot.edges, { includeEntryPoints });
+  return { count: orphans.length, orphans };
 };
 
 export type GraphQueryOptions = ProjectionOptions & { full?: boolean };

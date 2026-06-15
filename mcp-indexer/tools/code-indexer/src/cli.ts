@@ -8,6 +8,7 @@ import {
   queryFindReferences,
   queryBlastRadius,
   queryFindCycles,
+  queryFindOrphans,
   queryGraph,
   querySearchNodes,
   queryContextPack,
@@ -68,7 +69,7 @@ const printRefs = (label: string, count: number, results: RefResult[]): void => 
 };
 
 const QUERY_USAGE =
-  'Usage: code-indexer query <who-renders|who-calls|find-references|blast-radius|find-cycles|graph|search|context|semantic> [--root <path>] [--id <node-id>] [--types a,b] [--json]\n' +
+  'Usage: code-indexer query <who-renders|who-calls|find-references|blast-radius|find-cycles|orphans|graph|search|context|semantic> [--root <path>] [--id <node-id>] [--types a,b] [--json]\n' +
   '  graph flags:    [--summary] [--full] [--lean] [--depth <n>] [--type a,b] [--fields a,b]\n' +
   '  search flags:   --query <text> [--type a,b] [--limit <n>]\n' +
   '  semantic flags: --query <text> [--type a,b] [--limit <n>]   (run `embed` first)\n' +
@@ -96,6 +97,48 @@ const runEmbedCommand = async (root: string): Promise<void> => {
   }
   console.log(`Embedded with ${res.model}`);
   console.log(`  ${res.embedded} embedded · ${res.skipped} reused · ${res.total} total`);
+};
+
+/**
+ * CI gate. Indexes (incrementally) then asserts health: fails (exit 1) when the
+ * dependency-cycle count exceeds `--max-cycles` (default 0). Orphans are reported
+ * but non-fatal by default (entry points / public API create false positives);
+ * `--fail-on-orphans` makes them fatal too.
+ */
+const runCheckCommand = (argv: string[]): void => {
+  const root = rootOf(argv);
+  const maxCyclesArg = flagValue(argv, '--max-cycles');
+  const maxCycles = maxCyclesArg !== undefined ? Number(maxCyclesArg) : 0;
+  const failOnOrphans = hasFlag(argv, '--fail-on-orphans');
+
+  try {
+    // Index first so `check` is a one-shot gate that doesn't depend on prior state.
+    runIndexCommand(root, true);
+
+    const cycles = queryFindCycles(root);
+    const orphans = queryFindOrphans(root, false);
+
+    console.log(`\nHealth check for ${root}`);
+    console.log(`  cycles:  ${cycles.count} (max allowed ${maxCycles})`);
+    console.log(`  orphans: ${orphans.count}${failOnOrphans ? ' (fatal)' : ' (warning)'}`);
+    for (const cycle of cycles.cycles) {
+      console.log(`    cycle: ${cycle.map((n) => n.name).join(' → ')}`);
+    }
+
+    const cyclesFail = cycles.count > maxCycles;
+    const orphansFail = failOnOrphans && orphans.count > 0;
+    if (cyclesFail || orphansFail) {
+      console.error(
+        `\n✗ check failed:${cyclesFail ? ` ${cycles.count} cycles (> ${maxCycles})` : ''}` +
+          `${orphansFail ? ` ${orphans.count} orphans` : ''}`,
+      );
+      process.exit(1);
+    }
+    console.log('\n✓ check passed');
+  } catch (err) {
+    console.error((err as Error).message);
+    process.exit(1);
+  }
 };
 
 const runQueryCommand = (argv: string[]): void => {
@@ -176,6 +219,17 @@ const runQueryCommand = (argv: string[]): void => {
         }
         return;
       }
+      case 'orphans': {
+        const res = queryFindOrphans(root, hasFlag(argv, '--include-entry-points'));
+        if (json) out(res);
+        else {
+          console.log(`${res.count} orphans (no incoming dependency)`);
+          for (const o of res.orphans) {
+            console.log(`  - ${o.type} ${o.name}${o.path ? ` (${o.path})` : ''}`);
+          }
+        }
+        return;
+      }
       case 'search': {
         const query = flagValue(argv, '--query');
         if (!query) {
@@ -252,6 +306,10 @@ export const runCli = (argv: string[]): void => {
     runAsync(runEmbedCommand(rootOf(rest)));
     return;
   }
+  if (command === 'check') {
+    runCheckCommand(rest);
+    return;
+  }
   if (command === 'query') {
     runQueryCommand(rest);
     return;
@@ -267,6 +325,7 @@ export const runCli = (argv: string[]): void => {
     'Unknown command. Usage:\n' +
       '  code-indexer index [--root <path>] [--incremental]\n' +
       '  code-indexer embed [--root <path>]\n' +
+      '  code-indexer check [--root <path>] [--max-cycles <n>] [--fail-on-orphans]\n' +
       `  code-indexer query ...\n${QUERY_USAGE}`,
   );
   process.exit(1);

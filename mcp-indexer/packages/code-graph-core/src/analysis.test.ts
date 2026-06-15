@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import type { GraphEdge, EdgeType } from './edge.schema';
+import type { GraphNode } from './node.schema';
+import { emptyStatus as emptyStatusForTest } from './status.schema';
 import {
   blastRadius,
   findCycles,
   whoRenders,
   whoCalls,
   findReferences,
+  findOrphans,
   buildReverseIndex,
   buildForwardIndex,
   DEPENDENCY_TYPES,
@@ -106,5 +109,51 @@ describe('DEPENDENCY_TYPES', () => {
     expect(DEPENDENCY_TYPES.has('contains')).toBe(false);
     expect(DEPENDENCY_TYPES.has('imports')).toBe(true);
     expect(DEPENDENCY_TYPES.has('renders')).toBe(true);
+  });
+});
+
+describe('findOrphans', () => {
+  const node = (id: string, type: 'file' | 'component' | 'function', path: string): GraphNode => ({
+    type,
+    id,
+    name: id,
+    parentId: null,
+    path,
+    ...(type === 'file'
+      ? { metrics: { loc: 1, exportsCount: 1 } }
+      : { span: { startLine: 1, endLine: 2 }, metrics: { loc: 1, exportsCount: 1 }, bundleBytes: null, signature: null }),
+    contentHash: null,
+    status: emptyStatusForTest(),
+    knowledge: null,
+    git: null,
+  });
+
+  // Header is rendered by App; Unused is rendered by nobody.
+  const nodes = [
+    node('cmp:App', 'component', 'src/App.tsx'),
+    node('cmp:Header', 'component', 'src/Header.tsx'),
+    node('cmp:Unused', 'component', 'src/Unused.tsx'),
+    node('file:src/index.ts', 'file', 'src/index.ts'),
+  ];
+  const edges = [edge('cmp:App', 'cmp:Header', 'renders')];
+
+  it('flags a component nothing renders/calls/imports', () => {
+    const ids = findOrphans(nodes, edges).map((o) => o.id);
+    expect(ids).toContain('cmp:Unused');
+  });
+
+  it('does not flag a referenced node', () => {
+    expect(findOrphans(nodes, edges).map((o) => o.id)).not.toContain('cmp:Header');
+  });
+
+  it('excludes entry-point files (index/App) by default', () => {
+    const ids = findOrphans(nodes, edges).map((o) => o.id);
+    expect(ids).not.toContain('file:src/index.ts');
+    expect(ids).not.toContain('cmp:App'); // App.tsx matches the entry pattern
+  });
+
+  it('includes entry points when asked', () => {
+    const ids = findOrphans(nodes, edges, { includeEntryPoints: true }).map((o) => o.id);
+    expect(ids).toContain('file:src/index.ts');
   });
 });
