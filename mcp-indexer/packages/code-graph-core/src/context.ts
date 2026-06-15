@@ -15,6 +15,8 @@ export interface ContextRef {
   name: string;
   type: NodeType;
   path: string | null;
+  /** The symbol's written contract, when it has one — so deps read as APIs. */
+  signature: string | null;
   edgeType: EdgeType;
   weight: number;
 }
@@ -26,10 +28,15 @@ export interface ContextTarget {
   type: NodeType;
   path: string | null;
   span: SourceSpan | null;
+  signature: string | null;
   health: HealthLevel;
   typeErrors: number;
   knowledge: string | null;
 }
+
+/** A symbol's signature when it carries one (component/function), else null. */
+const nodeSignature = (node: GraphNode): string | null =>
+  'signature' in node ? node.signature : null;
 
 /**
  * A self-contained "what do I need to safely touch this node" bundle: the target
@@ -58,6 +65,7 @@ const targetFacts = (node: GraphNode): ContextTarget => ({
   type: node.type,
   path: nodePath(node),
   span: 'span' in node ? node.span : null,
+  signature: nodeSignature(node),
   health: node.status.health,
   typeErrors: node.status.typeErrors,
   knowledge: node.knowledge?.summary ?? null,
@@ -83,6 +91,7 @@ const refsFrom = (
       name: node.name,
       type: node.type,
       path: nodePath(node),
+      signature: nodeSignature(node),
       edgeType: edge.type,
       weight: edge.weight,
     });

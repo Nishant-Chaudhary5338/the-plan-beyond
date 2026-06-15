@@ -54,6 +54,47 @@ const containsEdge = (parent: string, child: string): GraphEdge => ({
  * `occurrence` disambiguates same-named function symbols without embedding a
  * line number (which would churn on whitespace edits).
  */
+const MAX_SIGNATURE = 200;
+
+/** The function-like node behind a symbol, unwrapping `const x = () => …`. */
+const functionLike = (node: Node) => {
+  if (
+    Node.isFunctionDeclaration(node) ||
+    Node.isArrowFunction(node) ||
+    Node.isFunctionExpression(node) ||
+    Node.isMethodDeclaration(node)
+  ) {
+    return node;
+  }
+  if (Node.isVariableDeclaration(node)) {
+    const init = node.getInitializer();
+    if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+      return init;
+    }
+  }
+  return undefined;
+};
+
+/**
+ * A concise signature built from the WRITTEN type annotations — `(a: T, b?: U)
+ * => R`, or a component's `(props: Props)`. Never the fully-expanded inferred
+ * type (which can be enormous); bounded to {@link MAX_SIGNATURE}. Returns null
+ * for non-function symbols (a const object, a class, …).
+ */
+const extractSignature = (node: Node): string | null => {
+  const fn = functionLike(node);
+  if (!fn) return null;
+  const params = fn.getParameters().map((p) => {
+    const name = p.getNameNode().getText();
+    const typeText = p.getTypeNode()?.getText();
+    const opt = p.hasQuestionToken() ? '?' : '';
+    return typeText ? `${name}${opt}: ${typeText}` : `${name}${opt}`;
+  });
+  const ret = fn.getReturnTypeNode()?.getText();
+  const sig = `(${params.join(', ')})${ret ? ` => ${ret}` : ''}`;
+  return sig.length > MAX_SIGNATURE ? `${sig.slice(0, MAX_SIGNATURE)}…` : sig;
+};
+
 const makeSymbolNode = (
   relPath: string,
   fileNodeId: string,
@@ -64,6 +105,7 @@ const makeSymbolNode = (
   occurrence: number,
 ): { node: GraphNode; edge: GraphEdge } => {
   const { startLine, endLine } = span;
+  const signature = extractSignature(span.node);
   const kind = forceComponent
     ? 'component'
     : classifySymbol(name, span.node, isTsx);
@@ -83,6 +125,7 @@ const makeSymbolNode = (
       git: null,
       bundleBytes: null,
       metrics: { loc: endLine - startLine + 1, exportsCount: 0 },
+      signature,
     };
     return { node, edge: containsEdge(fileNodeId, id) };
   }
@@ -101,6 +144,7 @@ const makeSymbolNode = (
     git: null,
     bundleBytes: null,
     metrics: { loc: endLine - startLine + 1, exportsCount: 0 },
+    signature,
   };
   return { node, edge: containsEdge(fileNodeId, id) };
 };

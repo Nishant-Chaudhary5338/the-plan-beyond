@@ -90,7 +90,10 @@ export const FileNode = z
 export type FileNode = z.infer<typeof FileNode>;
 
 // Symbol-level nodes (components/functions) always have a span and may carry a
-// per-symbol bundle-size attribution.
+// per-symbol bundle-size attribution. `signature` is the concise written contract
+// — a function's `(params) => ret`, or a component's props type — so a consumer
+// can see how to USE a symbol without reading its source. `.default(null)` keeps
+// graphs written before this field was added parseable.
 const SymbolNode = (type: 'component' | 'function') =>
   z
     .object({
@@ -100,6 +103,7 @@ const SymbolNode = (type: 'component' | 'function') =>
       span: SourceSpan,
       metrics: NodeMetrics,
       bundleBytes: z.number().int().nonnegative().nullable(),
+      signature: z.string().nullable().default(null),
     })
     .strict();
 

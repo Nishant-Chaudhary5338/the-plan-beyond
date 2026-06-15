@@ -125,3 +125,41 @@ describe('extractSymbolNodes — modern React component forms', () => {
     expect(parse?.id).toBe('fn:src/dupe.ts#parse');
   });
 });
+
+describe('extractSymbolNodes — signatures', () => {
+  const sig = (rel: string, code: string, name: string): string | null => {
+    const node = byName(extract(rel, code), name);
+    return node && 'signature' in node ? node.signature : null;
+  };
+
+  it('captures a function signature from written param + return types', () => {
+    expect(
+      sig('src/svc.ts', `export function make(client: HttpClient): Service { return client as any; }`, 'make'),
+    ).toBe('(client: HttpClient) => Service');
+  });
+
+  it('captures an arrow function assigned to a const', () => {
+    expect(
+      sig('src/util.ts', `export const toWire = (d: Draft): Wire => ({} as Wire);`, 'toWire'),
+    ).toBe('(d: Draft) => Wire');
+  });
+
+  it('marks optional params and omits an absent return type', () => {
+    expect(
+      sig('src/fmt.ts', `export const fmt = (n: number, opts?: Opts) => String(n);`, 'fmt'),
+    ).toBe('(n: number, opts?: Opts)');
+  });
+
+  it("captures a component's props type as its signature", () => {
+    const s = sig(
+      'src/Card.tsx',
+      `export const Card = (props: CardProps) => <div>{props.title}</div>;`,
+      'Card',
+    );
+    expect(s).toBe('(props: CardProps)');
+  });
+
+  it('is null for a non-function symbol', () => {
+    expect(sig('src/c.ts', `export const config = { a: 1 };`, 'config')).toBeNull();
+  });
+});

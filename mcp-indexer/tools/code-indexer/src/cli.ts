@@ -205,11 +205,13 @@ const runQueryCommand = (argv: string[]): void => {
         if (json) out(res);
         else {
           const t = res.target;
-          console.log(`${t.type} ${t.name}${t.path ? ` (${t.path})` : ''} — health: ${t.health}`);
+          console.log(`${t.type} ${t.name}${t.signature ?? ''}${t.path ? `  (${t.path})` : ''} — health: ${t.health}`);
           console.log(`  depends on (${res.dependencies.length}):`);
-          for (const d of res.dependencies) console.log(`    → ${d.edgeType} ${d.type} ${d.name}`);
+          for (const d of res.dependencies)
+            console.log(`    → ${d.edgeType} ${d.type} ${d.name}${d.signature ?? ''}`);
           console.log(`  depended on by (${res.dependents.length}, blast radius ${res.blastRadiusCount}):`);
-          for (const d of res.dependents) console.log(`    ← ${d.edgeType} ${d.type} ${d.name}`);
+          for (const d of res.dependents)
+            console.log(`    ← ${d.edgeType} ${d.type} ${d.name}${d.signature ?? ''}`);
           console.log(`  source: ${res.source ? `${res.source.length} chars` : 'none'}`);
         }
         return;
