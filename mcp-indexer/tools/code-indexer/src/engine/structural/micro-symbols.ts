@@ -75,6 +75,10 @@ const buildPackageProject = (
     // `maxFilesPerPackage` and our exclude list deterministically.
     skipAddingFilesFromTsConfig: true,
     skipFileDependencyResolution: true,
+    // The structural pass is purely syntactic (parser + module resolution) and
+    // never invokes the type-checker, so the multi-MB default lib .d.ts files are
+    // dead weight — skip loading them across all 44+ package projects.
+    skipLoadingLibFiles: true,
     ...(tsConfigFilePath
       ? {}
       : {
