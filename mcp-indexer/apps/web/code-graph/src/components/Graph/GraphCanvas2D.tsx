@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
 import type { GraphNode, NodeType } from '@repo/code-graph-core';
 import { hasMetrics } from '@repo/code-graph-core';
-import { visibleGraph, type GraphIndex } from '../../lib/graph-model';
-import type { ColorMode } from '../../store/graphStore';
+import { visibleGraph, visibleDependencyGraph, type GraphIndex } from '../../lib/graph-model';
+import type { ColorMode, Layout } from '../../store/graphStore';
 import {
   HEALTH_COLOR,
   SELECTED_COLOR,
@@ -33,6 +33,8 @@ type GraphCanvas2DProps = {
   background: string;
   /** Active theme — selects node/edge palettes and label/ring colors. */
   theme: Theme;
+  /** Structure (folder drill) vs dependency (subtree leaves by deps) layout. */
+  layout: Layout;
   onDrill: (id: string) => void;
   onSelect: (id: string) => void;
 };
@@ -63,6 +65,7 @@ export const GraphCanvas2D = ({
   fitSignal,
   background,
   theme,
+  layout,
   onDrill,
   onSelect,
 }: GraphCanvas2DProps): React.ReactElement => {
@@ -74,8 +77,11 @@ export const GraphCanvas2D = ({
   const fittedFocusRef = useRef<string | null>(null);
 
   const { nodes, links, expandable } = useMemo(
-    () => visibleGraph(index, focusId),
-    [index, focusId],
+    () =>
+      layout === 'dependency'
+        ? visibleDependencyGraph(index, focusId)
+        : visibleGraph(index, focusId),
+    [index, focusId, layout],
   );
 
   // Apply the rail's type/edge filters before rendering + tracing.

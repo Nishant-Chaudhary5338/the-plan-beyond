@@ -26,14 +26,16 @@ type GraphViewProps = {
 export const GraphView = (props: GraphViewProps): React.ReactElement => {
   const renderMode = useGraphStore((s) => s.renderMode);
   const theme = useGraphStore((s) => s.theme);
+  const layout = useGraphStore((s) => s.layout);
   const Renderer = renderMode === '3d' ? GraphCanvas : GraphCanvas2D;
-  // Key by mode AND theme: remounting on theme change rebuilds the scene fog /
-  // background + repaints node/edge colors cleanly rather than mutating live WebGL.
+  // Key by mode, theme AND layout: remounting rebuilds the scene/background and
+  // resets the force simulation so a layout switch re-clusters cleanly.
   return (
     <Renderer
-      key={`${renderMode}-${theme}`}
+      key={`${renderMode}-${theme}-${layout}`}
       background={CANVAS_BG[theme]}
       theme={theme}
+      layout={layout}
       {...props}
     />
   );

@@ -19,6 +19,8 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 export type ColorMode = 'type' | 'health';
 export type RenderMode = '2d' | '3d';
 export type Theme = 'dark' | 'light';
+/** Structure = folder-tree drill; Dependency = subtree leaves laid out by deps. */
+export type Layout = 'structure' | 'dependency';
 
 // --- localStorage-backed UI preference persistence -------------------------
 // Survives reloads. Every access is guarded (SSR / private mode) and wrapped in
@@ -26,6 +28,7 @@ export type Theme = 'dark' | 'light';
 const PREF_KEYS = {
   colorMode: 'cg-color-mode',
   renderMode: 'cg-render-mode',
+  layout: 'cg-layout',
   railCollapsed: 'cg-rail-collapsed',
   hiddenTypes: 'cg-hidden-types',
   hiddenEdges: 'cg-hidden-edges',
@@ -93,6 +96,7 @@ type GraphStore = {
   cycleCount: number;
   colorMode: ColorMode;
   renderMode: RenderMode;
+  layout: Layout;
   theme: Theme;
   /** Node types hidden via the filter rail. */
   hiddenTypes: Set<NodeType>;
@@ -106,6 +110,7 @@ type GraphStore = {
   load: () => Promise<void>;
   setColorMode: (mode: ColorMode) => void;
   setRenderMode: (mode: RenderMode) => void;
+  setLayout: (layout: Layout) => void;
   setTheme: (theme: Theme) => void;
   toggleType: (t: NodeType) => void;
   toggleEdge: (e: string) => void;
@@ -158,6 +163,9 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   colorMode: readPref<ColorMode>(PREF_KEYS.colorMode, 'type', (raw) =>
     raw === 'type' || raw === 'health' ? raw : 'type',
   ),
+  layout: readPref<Layout>(PREF_KEYS.layout, 'structure', (raw) =>
+    raw === 'structure' || raw === 'dependency' ? raw : 'structure',
+  ),
   renderMode: readPref<RenderMode>(PREF_KEYS.renderMode, '3d', (raw) =>
     raw === '2d' || raw === '3d' ? raw : '3d',
   ),
@@ -184,6 +192,10 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
   setColorMode: (mode) => {
     writePref(PREF_KEYS.colorMode, mode);
     set({ colorMode: mode });
+  },
+  setLayout: (layout) => {
+    writePref(PREF_KEYS.layout, layout);
+    set({ layout });
   },
   setRenderMode: (mode) => {
     writePref(PREF_KEYS.renderMode, mode);

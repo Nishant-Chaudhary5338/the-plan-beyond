@@ -5,8 +5,8 @@ import { Vector2, FogExp2, DirectionalLight } from 'three';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import type { GraphNode, NodeType } from '@repo/code-graph-core';
 import { hasMetrics } from '@repo/code-graph-core';
-import { visibleGraph, type GraphIndex } from '../../lib/graph-model';
-import type { ColorMode } from '../../store/graphStore';
+import { visibleGraph, visibleDependencyGraph, type GraphIndex } from '../../lib/graph-model';
+import type { ColorMode, Layout } from '../../store/graphStore';
 import {
   HEALTH_COLOR,
   SELECTED_COLOR,
@@ -36,6 +36,8 @@ type GraphCanvasProps = {
   background: string;
   /** Active theme — selects node/edge palettes and gates the bloom wash. */
   theme: Theme;
+  /** Structure (folder drill) vs dependency (subtree leaves by deps) layout. */
+  layout: Layout;
   onDrill: (id: string) => void;
   onSelect: (id: string) => void;
 };
@@ -66,6 +68,7 @@ export const GraphCanvas = ({
   fitSignal,
   background,
   theme,
+  layout,
   onDrill,
   onSelect,
 }: GraphCanvasProps): React.ReactElement => {
@@ -79,8 +82,11 @@ export const GraphCanvas = ({
   const fxReadyRef = useRef(false);
 
   const { nodes, links, expandable } = useMemo(
-    () => visibleGraph(index, focusId),
-    [index, focusId],
+    () =>
+      layout === 'dependency'
+        ? visibleDependencyGraph(index, focusId)
+        : visibleGraph(index, focusId),
+    [index, focusId, layout],
   );
 
   // Apply the rail's type/edge filters before rendering + tracing.

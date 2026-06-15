@@ -92,6 +92,48 @@ export const visibleGraph = (
   return { nodes: children, links, expandable };
 };
 
+const LEAF_TYPES = new Set<NodeType>(['file', 'component', 'function']);
+
+/**
+ * The DEPENDENCY view: every leaf (file/component/function) in the focus node's
+ * subtree, plus the external packages they pull in, linked by dependency edges
+ * only (`contains` is dropped). Unlike {@link visibleGraph}'s one-folder-level
+ * drill, this lays the whole subtree out by who-imports/renders/calls-whom — the
+ * actual dependency graph, not the folder hierarchy. Nothing is "expandable"
+ * (there's no tree to drill); clicking a node just selects it.
+ */
+export const visibleDependencyGraph = (
+  index: GraphIndex,
+  focusId: string,
+): VisibleGraph => {
+  // Walk the contains tree under focus, collecting leaf nodes.
+  const ids = new Set<string>();
+  const queue = [focusId];
+  while (queue.length > 0) {
+    const current = queue.pop();
+    if (current === undefined) continue;
+    for (const child of index.childrenOf.get(current) ?? []) {
+      queue.push(child.id);
+      if (LEAF_TYPES.has(child.type)) ids.add(child.id);
+    }
+  }
+  // External packages live outside the contains tree — pull in the ones our
+  // included nodes depend on so node_modules edges are visible here too.
+  for (const e of index.crossEdges) {
+    if (!ids.has(e.source)) continue;
+    if (index.nodeById.get(e.target)?.type === 'external') ids.add(e.target);
+  }
+
+  const nodes = [...ids]
+    .map((id) => index.nodeById.get(id))
+    .filter((n): n is GraphNode => n !== undefined);
+  const links: VisibleLink[] = index.crossEdges
+    .filter((e) => ids.has(e.source) && ids.has(e.target))
+    .map((e) => ({ id: e.id, source: e.source, target: e.target, type: e.type, weight: e.weight }));
+
+  return { nodes, links, expandable: new Set<string>() };
+};
+
 export const TYPE_LABEL: Record<NodeType, string> = {
   repo: 'Repository',
   app: 'App',

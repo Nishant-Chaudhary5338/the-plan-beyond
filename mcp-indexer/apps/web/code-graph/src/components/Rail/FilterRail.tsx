@@ -157,6 +157,8 @@ export const FilterRail = (): React.ReactElement => {
   const setColorMode = useGraphStore((s) => s.setColorMode);
   const renderMode = useGraphStore((s) => s.renderMode);
   const setRenderMode = useGraphStore((s) => s.setRenderMode);
+  const layout = useGraphStore((s) => s.layout);
+  const setLayout = useGraphStore((s) => s.setLayout);
   const theme = useGraphStore((s) => s.theme);
   const setTheme = useGraphStore((s) => s.setTheme);
   const collapsed = useGraphStore((s) => s.railCollapsed);
@@ -218,6 +220,18 @@ export const FilterRail = (): React.ReactElement => {
             ]}
             value={renderMode}
             onChange={setRenderMode}
+          />
+        </Section>
+
+        <Section title="Layout">
+          <Segmented
+            groupId="layout"
+            options={[
+              ['structure', 'Structure'],
+              ['dependency', 'Dependencies'],
+            ]}
+            value={layout}
+            onChange={setLayout}
           />
         </Section>
 
