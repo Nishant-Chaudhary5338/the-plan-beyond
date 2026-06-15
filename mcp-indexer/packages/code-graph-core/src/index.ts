@@ -61,3 +61,19 @@ export type {
   ProjectionOptions,
   ProjectedGraph,
 } from './projection';
+export { searchNodes } from './search';
+export type { SearchResult, SearchOptions } from './search';
+export {
+  cosineSimilarity,
+  rankBySimilarity,
+  EMBEDDABLE_TYPES,
+  isEmbeddable,
+} from './semantic';
+export type { VectorEntry, SemanticHit } from './semantic';
+export { buildContextPack } from './context';
+export type {
+  ContextPack,
+  ContextRef,
+  ContextTarget,
+  ContextPackOptions,
+} from './context';

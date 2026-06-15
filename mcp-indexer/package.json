@@ -27,5 +27,11 @@
     "prettier": "^3.5.0",
     "tsx": "^4.22.4",
     "turbo": "^2.8.20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "onnxruntime-node",
+      "sharp"
+    ]
   }
 }

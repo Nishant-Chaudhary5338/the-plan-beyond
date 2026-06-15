@@ -2,6 +2,13 @@ import { IndexerSession } from 'code-indexer-mcp/engine';
 import { writeSnapshot } from 'code-indexer-mcp/cache';
 import { readNodeSource, describeNode } from 'code-indexer-mcp/knowledge';
 import {
+  embedSnapshot,
+  semanticSearch,
+  type EmbedResult,
+  type SemanticSearchResult,
+  type SemanticSearchOptions,
+} from 'code-indexer-mcp/semantic';
+import {
   nodePath,
   type GraphSnapshot,
   type GraphNode,
@@ -179,6 +186,31 @@ export class GraphService {
       if (this.snapshot) writeSnapshot(this.snapshot.meta.root, this.snapshot);
       return patch;
     });
+  }
+
+  /**
+   * Compute/refresh embeddings for the live snapshot (enables semantic search).
+   * Serialized — it mutates the snapshot's `knowledge.embeddingId` and rewrites
+   * the sidecar, so it must not interleave with reindex/reparse.
+   */
+  buildEmbeddings(): Promise<EmbedResult> {
+    return this.serialize(async () => {
+      if (!this.snapshot) {
+        return { available: false, embedded: 0, skipped: 0, total: 0, model: '' };
+      }
+      return embedSnapshot(this.session.getWorkspaceRoot(), this.snapshot);
+    });
+  }
+
+  /** "Find by meaning" over the live snapshot (read-only; lexical fallback). */
+  async semanticSearch(
+    query: string,
+    opts: SemanticSearchOptions = {},
+  ): Promise<SemanticSearchResult> {
+    if (!this.snapshot) {
+      return { query, usedEmbeddings: false, count: 0, results: [], hint: 'Graph not indexed yet.' };
+    }
+    return semanticSearch(this.session.getWorkspaceRoot(), this.snapshot, query, opts);
   }
 
   async generateKnowledge(nodeId: string): Promise<GraphNode | null> {

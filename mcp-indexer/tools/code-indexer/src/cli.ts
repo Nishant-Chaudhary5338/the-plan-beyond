@@ -9,9 +9,14 @@ import {
   queryBlastRadius,
   queryFindCycles,
   queryGraph,
+  querySearchNodes,
+  queryContextPack,
+  queryEmbedRepo,
+  querySemanticSearch,
   type GraphQueryOptions,
   type RefResult,
 } from './query.js';
+import type { NodeType } from '@repo/code-graph-core';
 
 const flagValue = (argv: string[], name: string): string | undefined => {
   const i = argv.indexOf(name);
@@ -63,14 +68,70 @@ const printRefs = (label: string, count: number, results: RefResult[]): void => 
 };
 
 const QUERY_USAGE =
-  'Usage: code-indexer query <who-renders|who-calls|find-references|blast-radius|find-cycles|graph> [--root <path>] [--id <node-id>] [--types a,b] [--json]\n' +
-  '  graph flags: [--summary] [--full] [--lean] [--depth <n>] [--type a,b] [--fields a,b]';
+  'Usage: code-indexer query <who-renders|who-calls|find-references|blast-radius|find-cycles|graph|search|context|semantic> [--root <path>] [--id <node-id>] [--types a,b] [--json]\n' +
+  '  graph flags:    [--summary] [--full] [--lean] [--depth <n>] [--type a,b] [--fields a,b]\n' +
+  '  search flags:   --query <text> [--type a,b] [--limit <n>]\n' +
+  '  semantic flags: --query <text> [--type a,b] [--limit <n>]   (run `embed` first)\n' +
+  '  context flags:  --id <node-id> [--max-refs <n>]';
+
+/** Run an async CLI path, surfacing failures as a clean non-zero exit. */
+const runAsync = (work: Promise<void>): void => {
+  work.catch((err: unknown) => {
+    console.error((err as Error).message);
+    process.exit(1);
+  });
+};
+
+const runEmbedCommand = async (root: string): Promise<void> => {
+  const res = await queryEmbedRepo(root, (done, total) => {
+    process.stderr.write(`\r  embedding ${done}/${total}…`);
+    if (done === total) process.stderr.write('\n');
+  });
+  if (!res.available) {
+    console.error(
+      'Embedding model unavailable (optional dep @xenova/transformers not installed, ' +
+        'or model could not be fetched). Semantic search will fall back to lexical.',
+    );
+    process.exit(1);
+  }
+  console.log(`Embedded with ${res.model}`);
+  console.log(`  ${res.embedded} embedded · ${res.skipped} reused · ${res.total} total`);
+};
 
 const runQueryCommand = (argv: string[]): void => {
   const [sub] = argv;
   const root = rootOf(argv);
   const json = hasFlag(argv, '--json');
   const out = (value: unknown): void => console.log(JSON.stringify(value, null, 2));
+
+  // Semantic search is async (it loads the local model); handle it off the
+  // synchronous switch below.
+  if (sub === 'semantic') {
+    const query = flagValue(argv, '--query');
+    if (!query) {
+      console.error('Missing --query <text>');
+      process.exit(1);
+    }
+    const typeArg = flagValue(argv, '--type')?.split(',').filter(Boolean);
+    const limitArg = flagValue(argv, '--limit');
+    runAsync(
+      querySemanticSearch(root, query, {
+        type: typeArg as NodeType[] | undefined,
+        limit: limitArg !== undefined ? Number(limitArg) : undefined,
+      }).then((res) => {
+        if (json) out(res);
+        else {
+          const mode = res.usedEmbeddings ? 'semantic' : 'lexical fallback';
+          console.log(`${res.count} matches (${mode})`);
+          if (res.hint) console.log(`  ! ${res.hint}`);
+          for (const r of res.results) {
+            console.log(`  - ${r.score.toFixed(3)}  ${r.type} ${r.name}${r.path ? ` (${r.path})` : ''}`);
+          }
+        }
+      }),
+    );
+    return;
+  }
 
   try {
     switch (sub) {
@@ -115,6 +176,44 @@ const runQueryCommand = (argv: string[]): void => {
         }
         return;
       }
+      case 'search': {
+        const query = flagValue(argv, '--query');
+        if (!query) {
+          console.error('Missing --query <text>');
+          process.exit(1);
+        }
+        const typeArg = flagValue(argv, '--type')?.split(',').filter(Boolean);
+        const limitArg = flagValue(argv, '--limit');
+        const res = querySearchNodes(root, query, {
+          type: typeArg as NodeType[] | undefined,
+          limit: limitArg !== undefined ? Number(limitArg) : undefined,
+        });
+        if (json) out(res);
+        else {
+          console.log(`${res.count} matches`);
+          for (const r of res.results) {
+            console.log(`  - ${r.type} ${r.name}${r.path ? ` (${r.path})` : ''}  [${r.id}]`);
+          }
+        }
+        return;
+      }
+      case 'context': {
+        const maxRefsArg = flagValue(argv, '--max-refs');
+        const res = queryContextPack(root, requireId(argv), {
+          maxRefs: maxRefsArg !== undefined ? Number(maxRefsArg) : undefined,
+        });
+        if (json) out(res);
+        else {
+          const t = res.target;
+          console.log(`${t.type} ${t.name}${t.path ? ` (${t.path})` : ''} — health: ${t.health}`);
+          console.log(`  depends on (${res.dependencies.length}):`);
+          for (const d of res.dependencies) console.log(`    → ${d.edgeType} ${d.type} ${d.name}`);
+          console.log(`  depended on by (${res.dependents.length}, blast radius ${res.blastRadiusCount}):`);
+          for (const d of res.dependents) console.log(`    ← ${d.edgeType} ${d.type} ${d.name}`);
+          console.log(`  source: ${res.source ? `${res.source.length} chars` : 'none'}`);
+        }
+        return;
+      }
       case 'graph': {
         const typeArg = flagValue(argv, '--type')?.split(',').filter(Boolean);
         const fields = flagValue(argv, '--fields')?.split(',').filter(Boolean);
@@ -147,6 +246,10 @@ export const runCli = (argv: string[]): void => {
     runIndexCommand(rootOf(rest), rest.includes('--incremental'));
     return;
   }
+  if (command === 'embed') {
+    runAsync(runEmbedCommand(rootOf(rest)));
+    return;
+  }
   if (command === 'query') {
     runQueryCommand(rest);
     return;
@@ -161,6 +264,7 @@ export const runCli = (argv: string[]): void => {
   console.error(
     'Unknown command. Usage:\n' +
       '  code-indexer index [--root <path>] [--incremental]\n' +
+      '  code-indexer embed [--root <path>]\n' +
       `  code-indexer query ...\n${QUERY_USAGE}`,
   );
   process.exit(1);

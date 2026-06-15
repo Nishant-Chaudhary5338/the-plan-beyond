@@ -11,13 +11,21 @@ import {
   queryBlastRadius,
   queryFindCycles,
   queryGraph,
+  querySearchNodes,
+  queryContextPack,
+  queryEmbedRepo,
+  querySemanticSearch,
   type GraphQueryOptions,
 } from './query.js';
+import type { NodeType } from '@repo/code-graph-core';
 import { readSnapshot } from './engine/incremental/cache.js';
 
 type IndexArgs = { root?: string };
 type NodeArgs = { root?: string; id?: string };
 type RefArgs = { root?: string; id?: string; types?: string[] };
+type SearchArgs = { root?: string; query?: string; type?: string[]; limit?: number };
+type ContextArgs = { root?: string; id?: string; maxRefs?: number };
+type SemanticArgs = { root?: string; query?: string; type?: string[]; limit?: number };
 type GraphArgs = {
   root?: string;
   summary?: boolean;
@@ -131,6 +139,60 @@ export class CodeIndexerServer extends McpServerBase {
       { type: 'object', properties: { ...rootProp } },
       this.handleFindCycles.bind(this),
     );
+
+    this.addTool(
+      'search_nodes',
+      'Fuzzy-find nodes by name or path (e.g. "useAuth", "Header") — resolve a rough name to canonical node ids without grepping or guessing ids',
+      {
+        type: 'object',
+        properties: {
+          ...rootProp,
+          query: { type: 'string', description: 'Free-text name/path to match' },
+          type: { type: 'array', items: { type: 'string' }, description: 'Restrict to node types (component, function, file, …)' },
+          limit: { type: 'number', description: 'Max results (default 20)' },
+        },
+        required: ['query'],
+      },
+      this.handleSearchNodes.bind(this),
+    );
+
+    this.addTool(
+      'get_context_pack',
+      'One dense bundle for safely editing a node: its source + what it depends on + what depends on it + blast-radius size. Use instead of get_node + source + who_calls + blast_radius.',
+      {
+        type: 'object',
+        properties: {
+          ...rootProp,
+          id: { type: 'string', description: 'Target node id' },
+          maxRefs: { type: 'number', description: 'Cap on each dependency/dependent list (default 50)' },
+        },
+        required: ['id'],
+      },
+      this.handleGetContextPack.bind(this),
+    );
+
+    this.addTool(
+      'build_embeddings',
+      'Compute local vector embeddings for the indexed nodes (enables semantic_search). Idempotent + incremental — only changed nodes are re-embedded. No-op if the local model is unavailable.',
+      { type: 'object', properties: { ...rootProp } },
+      this.handleBuildEmbeddings.bind(this),
+    );
+
+    this.addTool(
+      'semantic_search',
+      'Find code by MEANING, not just name (e.g. "logic that decides trustee access"). Ranks nodes by embedding similarity; falls back to lexical search (with a hint) if embeddings aren\'t built.',
+      {
+        type: 'object',
+        properties: {
+          ...rootProp,
+          query: { type: 'string', description: 'Natural-language description of what you are looking for' },
+          type: { type: 'array', items: { type: 'string' }, description: 'Restrict to node types (component, function, file)' },
+          limit: { type: 'number', description: 'Max results (default 20)' },
+        },
+        required: ['query'],
+      },
+      this.handleSemanticSearch.bind(this),
+    );
   }
 
   private async handleIndexRepo(args: unknown): Promise<ToolResult> {
@@ -219,6 +281,55 @@ export class CodeIndexerServer extends McpServerBase {
     try {
       const root = resolveRoot((args as IndexArgs).root);
       return this.success({ ...queryFindCycles(root) });
+    } catch (err) {
+      return this.error(err);
+    }
+  }
+
+  private async handleSearchNodes(args: unknown): Promise<ToolResult> {
+    try {
+      const { root, query, type, limit } = args as SearchArgs;
+      if (!query) throw new Error('query is required');
+      return this.success({
+        ...querySearchNodes(resolveRoot(root), query, {
+          type: type as NodeType[] | undefined,
+          limit,
+        }),
+      });
+    } catch (err) {
+      return this.error(err);
+    }
+  }
+
+  private async handleGetContextPack(args: unknown): Promise<ToolResult> {
+    try {
+      const { root, id, maxRefs } = args as ContextArgs;
+      if (!id) throw new Error('id is required');
+      return this.success({ ...queryContextPack(resolveRoot(root), id, { maxRefs }) });
+    } catch (err) {
+      return this.error(err);
+    }
+  }
+
+  private async handleBuildEmbeddings(args: unknown): Promise<ToolResult> {
+    try {
+      const root = resolveRoot((args as IndexArgs).root);
+      return this.success({ ...(await queryEmbedRepo(root)) });
+    } catch (err) {
+      return this.error(err);
+    }
+  }
+
+  private async handleSemanticSearch(args: unknown): Promise<ToolResult> {
+    try {
+      const { root, query, type, limit } = args as SemanticArgs;
+      if (!query) throw new Error('query is required');
+      return this.success({
+        ...(await querySemanticSearch(resolveRoot(root), query, {
+          type: type as NodeType[] | undefined,
+          limit,
+        })),
+      });
     } catch (err) {
       return this.error(err);
     }

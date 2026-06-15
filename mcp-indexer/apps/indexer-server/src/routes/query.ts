@@ -5,8 +5,11 @@ import {
   findReferences,
   blastRadius,
   findCycles,
+  searchNodes,
+  buildContextPack,
   nodePath,
   EdgeType,
+  NodeType,
   type GraphEdge,
   type GraphNode,
 } from '@repo/code-graph-core';
@@ -14,6 +17,8 @@ import type { GraphService } from '../graph-service.js';
 
 /** The valid edge-type values, for filtering the `?types=` query param. */
 const EDGE_TYPES = new Set<string>(EdgeType.options);
+/** The valid node-type values, for filtering the search `?type=` query param. */
+const NODE_TYPES = new Set<string>(NodeType.options);
 
 /**
  * Identity + location facts for a node, the shape every enriched query result
@@ -151,6 +156,91 @@ export const queryRouter = (graph: GraphService): Router => {
       if (ref) impacted.push(ref);
     }
     res.json({ id, count: impacted.length, impacted });
+  });
+
+  /**
+   * Fuzzy node search: `?query=useAuth&type=component,function&limit=20`. Ranks
+   * nodes by name/path so a UI or agent can resolve a rough name to ids.
+   */
+  router.get('/search', (req, res) => {
+    const snapshot = graph.getSnapshot();
+    if (!snapshot) {
+      res.status(503).json({ error: 'Graph not indexed yet' });
+      return;
+    }
+    const query = typeof req.query.query === 'string' ? req.query.query : '';
+    if (query.trim().length === 0) {
+      res.status(400).json({ error: 'query is required' });
+      return;
+    }
+    const rawTypes = typeof req.query.type === 'string' ? req.query.type : '';
+    const types = rawTypes
+      .split(',')
+      .map((s) => s.trim())
+      .filter((t): t is NodeType => NODE_TYPES.has(t));
+    const limitRaw = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : NaN;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : undefined;
+
+    const results = searchNodes(snapshot.nodes, query, {
+      type: types.length > 0 ? types : undefined,
+      limit,
+    });
+    res.json({ query, count: results.length, results });
+  });
+
+  /**
+   * The "safely edit this" bundle for `:id`: structural context pack (deps,
+   * dependents, blast-radius size) plus the target's bounded source. `?maxRefs=`
+   * caps each ref list.
+   */
+  router.get('/context/:id', (req, res) => {
+    const snapshot = graph.getSnapshot();
+    if (!snapshot) {
+      res.status(503).json({ error: 'Graph not indexed yet' });
+      return;
+    }
+    const id = req.params.id;
+    const maxRaw = typeof req.query.maxRefs === 'string' ? Number.parseInt(req.query.maxRefs, 10) : NaN;
+    const maxRefs = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : undefined;
+    try {
+      const pack = buildContextPack(snapshot.nodes, snapshot.edges, id, { maxRefs });
+      res.json({ ...pack, source: graph.getNodeSource(id) });
+    } catch {
+      res.status(404).json({ error: `Node not found: ${id}` });
+    }
+  });
+
+  /**
+   * "Find by meaning": `?query=...&type=component,function&limit=20`. Ranks by
+   * embedding similarity; falls back to lexical search (flagged in the response)
+   * if embeddings haven't been built or the model is unavailable.
+   */
+  router.get('/semantic-search', (req, res) => {
+    const query = typeof req.query.query === 'string' ? req.query.query : '';
+    if (query.trim().length === 0) {
+      res.status(400).json({ error: 'query is required' });
+      return;
+    }
+    const rawTypes = typeof req.query.type === 'string' ? req.query.type : '';
+    const types = rawTypes
+      .split(',')
+      .map((s) => s.trim())
+      .filter((t): t is GraphNode['type'] => NODE_TYPES.has(t));
+    const limitRaw = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : NaN;
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : undefined;
+
+    graph
+      .semanticSearch(query, { type: types.length > 0 ? types : undefined, limit })
+      .then((result) => res.json(result))
+      .catch((err: unknown) => res.status(500).json({ error: (err as Error).message }));
+  });
+
+  /** Build/refresh embeddings so semantic search can use real vectors. */
+  router.post('/embed', (_req, res) => {
+    graph
+      .buildEmbeddings()
+      .then((result) => res.json(result))
+      .catch((err: unknown) => res.status(500).json({ error: (err as Error).message }));
   });
 
   /** All dependency cycles in the graph, each as an ordered list of node refs. */

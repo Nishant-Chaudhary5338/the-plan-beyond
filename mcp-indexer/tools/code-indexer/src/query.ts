@@ -6,6 +6,8 @@ import {
   findCycles,
   projectGraph,
   summarizeSnapshot,
+  searchNodes,
+  buildContextPack,
   nodePath,
   DEFAULT_FULL_NODE_THRESHOLD,
   EdgeType,
@@ -16,8 +18,20 @@ import {
   type ProjectionOptions,
   type GraphSummary,
   type ProjectedGraph,
+  type SearchResult,
+  type SearchOptions,
+  type ContextPack,
+  type ContextPackOptions,
 } from '@repo/code-graph-core';
 import { readSnapshot } from './engine/incremental/cache.js';
+import { readNodeSource } from './engine/knowledge/read-source.js';
+import {
+  embedSnapshot,
+  semanticSearch,
+  type EmbedResult,
+  type SemanticSearchResult,
+  type SemanticSearchOptions,
+} from './engine/semantic/index.js';
 
 /**
  * Engine-level query facade. Loads the persisted snapshot once and runs the
@@ -186,3 +200,54 @@ export const queryGraph = (
   }
   return projectGraph(snapshot, opts);
 };
+
+export interface SearchQueryResult {
+  query: string;
+  count: number;
+  results: SearchResult[];
+}
+
+/** Fuzzy-rank nodes by name/path — resolve "roughly what it's called" to ids. */
+export const querySearchNodes = (
+  root: string,
+  query: string,
+  opts: SearchOptions = {},
+): SearchQueryResult => {
+  const snapshot = loadSnapshot(root);
+  const results = searchNodes(snapshot.nodes, query, opts);
+  return { query, count: results.length, results };
+};
+
+/** The structural context pack plus the target's (bounded) on-disk source. */
+export type ContextPackResult = ContextPack & { source: string | null };
+
+/**
+ * One dense, token-budgeted bundle for "what do I need to safely edit X": the
+ * target's source, what it depends on, what depends on it, and its blast-radius
+ * size — replacing a fan-out of get_node + source + who-calls + blast_radius.
+ */
+export const queryContextPack = (
+  root: string,
+  id: string,
+  opts: ContextPackOptions = {},
+): ContextPackResult => {
+  const snapshot = loadSnapshot(root);
+  const pack = buildContextPack(snapshot.nodes, snapshot.edges, id, opts);
+  const node = snapshot.nodes.find((n) => n.id === id);
+  const source = node ? readNodeSource(root, node) || null : null;
+  return { ...pack, source };
+};
+
+/** Compute/refresh embeddings for the persisted snapshot (local model pass). */
+export const queryEmbedRepo = (
+  root: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<EmbedResult> => embedSnapshot(root, loadSnapshot(root), onProgress);
+
+/** "Find by meaning" — vector search with graceful lexical fallback. */
+export const querySemanticSearch = (
+  root: string,
+  query: string,
+  opts: SemanticSearchOptions = {},
+): Promise<SemanticSearchResult> =>
+  semanticSearch(root, loadSnapshot(root), query, opts);
