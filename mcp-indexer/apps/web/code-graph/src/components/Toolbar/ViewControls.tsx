@@ -9,7 +9,7 @@ type ViewControlsProps = {
 };
 
 const BTN =
-  'flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.03] text-zinc-400 backdrop-blur-xl hover:bg-white/[0.08] hover:text-zinc-100';
+  'flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-content/5 text-muted backdrop-blur-xl hover:bg-content/10 hover:text-content';
 
 export const ViewControls = ({
   onHome,

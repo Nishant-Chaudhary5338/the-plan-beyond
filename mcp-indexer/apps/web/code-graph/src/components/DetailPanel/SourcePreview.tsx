@@ -42,15 +42,15 @@ export const SourcePreview = ({
     loaded && loaded.id === nodeId ? loaded.state : { status: 'loading' };
 
   if (state.status === 'loading') {
-    return <p className="text-[12px] text-zinc-500">Loading source…</p>;
+    return <p className="text-[12px] text-faint">Loading source…</p>;
   }
 
   if (state.status === 'empty') {
-    return <p className="text-[12px] text-zinc-500">No source available.</p>;
+    return <p className="text-[12px] text-faint">No source available.</p>;
   }
 
   return (
-    <pre className="max-h-72 overflow-auto whitespace-pre rounded-md bg-black/30 p-3 font-mono text-[12px] leading-relaxed text-zinc-300 ring-1 ring-white/[0.06]">
+    <pre className="max-h-72 overflow-auto whitespace-pre rounded-md bg-surface p-3 font-mono text-[12px] leading-relaxed text-muted ring-1 ring-line">
       {state.code}
     </pre>
   );

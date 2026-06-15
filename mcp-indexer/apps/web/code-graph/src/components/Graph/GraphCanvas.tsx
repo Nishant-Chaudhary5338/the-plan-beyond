@@ -8,12 +8,14 @@ import { hasMetrics } from '@repo/code-graph-core';
 import { visibleGraph, type GraphIndex } from '../../lib/graph-model';
 import type { ColorMode } from '../../store/graphStore';
 import {
-  TYPE_COLOR,
   HEALTH_COLOR,
-  EDGE_COLOR,
   SELECTED_COLOR,
-  DIMMED_COLOR,
+  nodeTypeColor,
+  edgeTypeColor,
+  dimmedColor,
+  HOT_EDGE_COLOR,
   nodeSize,
+  type Theme,
 } from '../../lib/graph-style';
 import { useElementSize } from '../../lib/useElementSize';
 
@@ -30,6 +32,10 @@ type GraphCanvasProps = {
   hiddenEdges: Set<string>;
   colorMode: ColorMode;
   fitSignal: number;
+  /** Canvas ground color (theme-derived); also tints the depth fog. */
+  background: string;
+  /** Active theme — selects node/edge palettes and gates the bloom wash. */
+  theme: Theme;
   onDrill: (id: string) => void;
   onSelect: (id: string) => void;
 };
@@ -58,6 +64,8 @@ export const GraphCanvas = ({
   hiddenEdges,
   colorMode,
   fitSignal,
+  background,
+  theme,
   onDrill,
   onSelect,
 }: GraphCanvasProps): React.ReactElement => {
@@ -148,23 +156,28 @@ export const GraphCanvas = ({
     fxReadyRef.current = true;
 
     const scene = fg.scene();
-    scene.fog = new FogExp2(0x05060a, 0.0011);
+    scene.fog = new FogExp2(Number.parseInt(background.slice(1), 16), 0.0011);
     const cool = new DirectionalLight(0x818cf8, 0.8);
     cool.position.set(-1.2, 1, 0.8);
     const warm = new DirectionalLight(0xf0abfc, 0.4);
     warm.position.set(1.2, -0.8, -0.6);
     scene.add(cool, warm);
 
-    // strength low + threshold high → a glow halo that keeps node colour intact.
-    const bloom = new UnrealBloomPass(
-      new Vector2(size.width, size.height),
-      0.8,
-      0.5,
-      0.3,
-    );
-    fg.postProcessingComposer().addPass(bloom);
-    bloomRef.current = bloom;
-  }, [size.width, size.height]);
+    // Bloom is an additive glow — gorgeous on the near-black canvas, but on paper
+    // it washes nodes into faint halos. Only add it in dark mode; light mode keeps
+    // crisp, high-contrast nodes instead.
+    if (theme === 'dark') {
+      // strength low + threshold high → a glow halo that keeps node colour intact.
+      const bloom = new UnrealBloomPass(
+        new Vector2(size.width, size.height),
+        0.8,
+        0.5,
+        0.3,
+      );
+      fg.postProcessingComposer().addPass(bloom);
+      bloomRef.current = bloom;
+    }
+  }, [size.width, size.height, background, theme]);
 
   useEffect(() => {
     if (bloomRef.current && size.width > 0) {
@@ -231,13 +244,14 @@ export const GraphCanvas = ({
     [impactSet, data],
   );
 
+  const dimmed = dimmedColor(theme);
   const colorFor = (node: ForceNode): string => {
     if (node.id === selectedId) return SELECTED_COLOR;
     if (impactSet && impactVisible)
-      return impactSet.has(node.id) ? highlightColor : DIMMED_COLOR;
-    if (!isHighlit(node.id)) return DIMMED_COLOR;
+      return impactSet.has(node.id) ? highlightColor : dimmed;
+    if (!isHighlit(node.id)) return dimmed;
     if (colorMode === 'health') return HEALTH_COLOR[node.status.health];
-    return TYPE_COLOR[node.type];
+    return nodeTypeColor(node.type, theme);
   };
 
   const linkHot = (link: ForceLink): boolean =>
@@ -251,7 +265,7 @@ export const GraphCanvas = ({
         width={size.width}
         height={size.height}
         graphData={data}
-        backgroundColor="#05060a"
+        backgroundColor={background}
         showNavInfo={false}
         nodeRelSize={5}
         nodeResolution={18}
@@ -270,8 +284,8 @@ export const GraphCanvas = ({
         linkCurvature={0.16}
         linkColor={(l) =>
           linkHot(l as ForceLink)
-            ? 'rgba(196,181,253,0.95)'
-            : EDGE_COLOR[(l as ForceLink).type] ?? 'rgba(100,100,120,0.3)'
+            ? HOT_EDGE_COLOR[theme]
+            : edgeTypeColor((l as ForceLink).type, theme)
         }
         linkWidth={(l) => (linkHot(l as ForceLink) ? 2 : Math.min(2, (l as ForceLink).weight))}
         linkDirectionalParticles={(l) => (linkHot(l as ForceLink) ? 4 : 1)}

@@ -21,10 +21,10 @@ const HEALTH_ICON: Record<HealthLevel, LucideIcon> = {
 type Badge = { label: string; tone: 'ok' | 'warn' | 'error' | 'muted' };
 
 const TONE_CLASS: Record<Badge['tone'], string> = {
-  ok: 'bg-green-500/15 text-green-300',
-  warn: 'bg-amber-500/15 text-amber-300',
-  error: 'bg-red-500/15 text-red-300',
-  muted: 'bg-zinc-700/30 text-zinc-400',
+  ok: 'bg-green-500/15 text-(--status-ok)',
+  warn: 'bg-amber-500/15 text-(--status-warn)',
+  error: 'bg-red-500/15 text-(--status-error)',
+  muted: 'bg-content/10 text-muted',
 };
 
 const buildBadges = (status: NodeStatus): Badge[] => {
@@ -72,7 +72,7 @@ export const StatusBadges = ({
           style={{ color: HEALTH_COLOR[health] }}
           aria-hidden="true"
         />
-        <span className="text-sm capitalize text-zinc-300">{health}</span>
+        <span className="text-sm capitalize text-muted">{health}</span>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {badges.map((badge) => (

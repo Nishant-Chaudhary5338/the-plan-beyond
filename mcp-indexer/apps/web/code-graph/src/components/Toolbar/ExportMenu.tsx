@@ -3,10 +3,10 @@ import { Download, FileJson, Image } from 'lucide-react';
 import { useGraphStore } from '../../store/graphStore';
 
 const BTN =
-  'flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.03] text-zinc-400 backdrop-blur-xl hover:bg-white/[0.08] hover:text-zinc-100';
+  'flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-content/5 text-muted backdrop-blur-xl hover:bg-content/10 hover:text-content';
 
 const ITEM =
-  'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent';
+  'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-muted transition-colors hover:bg-content/10 hover:text-content disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent';
 
 /** Push a Blob/data-url to the browser as a file download via a throwaway anchor. */
 const downloadHref = (href: string, filename: string): void => {
@@ -73,7 +73,7 @@ export const ExportMenu = (): React.ReactElement => {
   return (
     <div ref={rootRef} className="relative">
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-44 rounded-lg border border-white/[0.07] bg-zinc-900/80 p-1 shadow-xl backdrop-blur-xl">
+        <div className="absolute bottom-full left-0 mb-2 w-44 rounded-lg border border-line bg-surface p-1 shadow-xl backdrop-blur-xl">
           <button type="button" onClick={exportJson} disabled={!snapshot} className={ITEM}>
             <FileJson className="h-3.5 w-3.5" />
             Export graph JSON

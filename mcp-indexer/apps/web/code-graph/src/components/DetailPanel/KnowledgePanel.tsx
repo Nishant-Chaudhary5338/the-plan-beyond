@@ -16,7 +16,7 @@ export const KnowledgePanel = ({
 }: KnowledgePanelProps): React.ReactElement => {
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-zinc-400">
+      <div className="flex items-center gap-2 text-sm text-muted">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Asking Claude…
       </div>
@@ -26,10 +26,10 @@ export const KnowledgePanel = ({
   if (knowledge) {
     return (
       <div>
-        <p className="text-sm leading-relaxed text-zinc-300">
+        <p className="text-sm leading-relaxed text-muted">
           {knowledge.summary}
         </p>
-        <p className="mt-2 text-[11px] uppercase tracking-wide text-zinc-400">
+        <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">
           {knowledge.model}
         </p>
       </div>
@@ -38,7 +38,7 @@ export const KnowledgePanel = ({
 
   return (
     <div>
-      <p className="mb-2 text-sm text-zinc-400">
+      <p className="mb-2 text-sm text-muted">
         No summary yet for this node.
       </p>
       {canGenerate && (

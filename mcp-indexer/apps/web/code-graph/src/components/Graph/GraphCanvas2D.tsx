@@ -5,12 +5,14 @@ import { hasMetrics } from '@repo/code-graph-core';
 import { visibleGraph, type GraphIndex } from '../../lib/graph-model';
 import type { ColorMode } from '../../store/graphStore';
 import {
-  TYPE_COLOR,
   HEALTH_COLOR,
-  EDGE_COLOR,
   SELECTED_COLOR,
-  DIMMED_COLOR,
+  nodeTypeColor,
+  edgeTypeColor,
+  dimmedColor,
+  HOT_EDGE_COLOR,
   nodeSize,
+  type Theme,
 } from '../../lib/graph-style';
 import { useElementSize } from '../../lib/useElementSize';
 
@@ -27,6 +29,10 @@ type GraphCanvas2DProps = {
   hiddenEdges: Set<string>;
   colorMode: ColorMode;
   fitSignal: number;
+  /** Canvas ground color (theme-derived). */
+  background: string;
+  /** Active theme — selects node/edge palettes and label/ring colors. */
+  theme: Theme;
   onDrill: (id: string) => void;
   onSelect: (id: string) => void;
 };
@@ -55,6 +61,8 @@ export const GraphCanvas2D = ({
   hiddenEdges,
   colorMode,
   fitSignal,
+  background,
+  theme,
   onDrill,
   onSelect,
 }: GraphCanvas2DProps): React.ReactElement => {
@@ -166,13 +174,14 @@ export const GraphCanvas2D = ({
     [impactSet, data],
   );
 
+  const dimmed = dimmedColor(theme);
   const colorFor = (node: ForceNode): string => {
     if (node.id === selectedId) return SELECTED_COLOR;
     if (impactSet && impactVisible)
-      return impactSet.has(node.id) ? highlightColor : DIMMED_COLOR;
-    if (!isHighlit(node.id)) return DIMMED_COLOR;
+      return impactSet.has(node.id) ? highlightColor : dimmed;
+    if (!isHighlit(node.id)) return dimmed;
     if (colorMode === 'health') return HEALTH_COLOR[node.status.health];
-    return TYPE_COLOR[node.type];
+    return nodeTypeColor(node.type, theme);
   };
 
   const valFor = (node: ForceNode): number => {
@@ -201,18 +210,18 @@ export const GraphCanvas2D = ({
     ctx.fill();
     if (n.id === selectedId) {
       ctx.lineWidth = 1.5 / globalScale;
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = theme === 'light' ? '#0f172a' : '#ffffff';
       ctx.stroke();
     }
 
     // Labels only when zoomed in enough to be readable, and never on dimmed nodes.
-    const dimmed = color === DIMMED_COLOR;
-    if (globalScale > 1.1 && !dimmed) {
+    const isDimmed = color === dimmed;
+    if (globalScale > 1.1 && !isDimmed) {
       const fontSize = Math.min(5, 11 / globalScale);
       ctx.font = `500 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      ctx.fillStyle = '#e4e4e7';
+      ctx.fillStyle = theme === 'light' ? '#3f3f46' : '#e4e4e7';
       ctx.fillText(n.name, n.x, n.y + radius + 1);
     }
   };
@@ -224,7 +233,7 @@ export const GraphCanvas2D = ({
         width={size.width}
         height={size.height}
         graphData={data}
-        backgroundColor="#05060a"
+        backgroundColor={background}
         nodeRelSize={5}
         nodeVal={(n) => valFor(n as ForceNode)}
         nodeColor={(n) => colorFor(n as ForceNode)}
@@ -238,8 +247,8 @@ export const GraphCanvas2D = ({
         linkCurvature={0.12}
         linkColor={(l) =>
           linkHot(l as ForceLink)
-            ? 'rgba(196,181,253,0.95)'
-            : EDGE_COLOR[(l as ForceLink).type] ?? 'rgba(100,100,120,0.3)'
+            ? HOT_EDGE_COLOR[theme]
+            : edgeTypeColor((l as ForceLink).type, theme)
         }
         linkWidth={(l) =>
           linkHot(l as ForceLink) ? 2 : Math.min(2, (l as ForceLink).weight)

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import type { NodeType } from '@repo/code-graph-core';
 import { useGraphStore } from '../../store/graphStore';
-import { TYPE_COLOR, EDGE_COLOR } from '../../lib/graph-style';
+import { nodeTypeColor, edgeTypeColor } from '../../lib/graph-style';
 
 // The controls that used to crowd the top bar — node/edge filters, color mode,
 // and the 2D/3D toggle — live here in a collapsible left rail.
@@ -58,7 +58,7 @@ const Section = ({
   children: React.ReactNode;
 }): React.ReactElement => (
   <section className="mb-4">
-    <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
+    <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-faint">
       {title}
     </h3>
     {children}
@@ -77,7 +77,7 @@ const Segmented = <T extends string>({
   // Scopes the sliding pill's layoutId so multiple toggles don't share one.
   groupId: string;
 }): React.ReactElement => (
-  <div className="flex rounded-lg border border-white/[0.07] bg-white/[0.02] p-0.5">
+  <div className="flex rounded-lg border border-line bg-content/5 p-0.5">
     {options.map(([v, label]) => {
       const active = v === value;
       return (
@@ -95,7 +95,7 @@ const Segmented = <T extends string>({
             />
           )}
           <span
-            className={`relative ${active ? 'text-accent' : 'text-zinc-400 hover:text-zinc-200'}`}
+            className={`relative ${active ? 'text-accent' : 'text-muted hover:text-content'}`}
           >
             {label}
           </span>
@@ -122,7 +122,7 @@ const FilterRow = ({
     type="button"
     onClick={onClick}
     aria-pressed={!hidden}
-    className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-xs text-zinc-300 transition-colors hover:bg-white/[0.05]"
+    className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-xs text-muted transition-colors hover:bg-content/5"
   >
     {swatch === 'dot' ? (
       <span
@@ -135,13 +135,13 @@ const FilterRow = ({
         style={{ backgroundColor: color, opacity: hidden ? 0.3 : 1 }}
       />
     )}
-    <span className={`flex-1 text-left ${hidden ? 'text-zinc-600 line-through' : ''}`}>
+    <span className={`flex-1 text-left ${hidden ? 'text-faint line-through' : ''}`}>
       {label}
     </span>
     {hidden ? (
-      <EyeOff className="h-3.5 w-3.5 text-zinc-600" />
+      <EyeOff className="h-3.5 w-3.5 text-faint" />
     ) : (
-      <Eye className="h-3.5 w-3.5 text-zinc-500 opacity-0 group-hover:opacity-100" />
+      <Eye className="h-3.5 w-3.5 text-faint opacity-0 group-hover:opacity-100" />
     )}
   </button>
 );
@@ -162,22 +162,22 @@ export const FilterRail = (): React.ReactElement => {
 
   if (collapsed) {
     return (
-      <div className="flex h-full w-12 shrink-0 flex-col items-center gap-2 border-r border-white/[0.06] bg-[#0a0b12]/55 py-3 backdrop-blur-xl">
+      <div className="flex h-full w-12 shrink-0 flex-col items-center gap-2 border-r border-line bg-surface py-3 backdrop-blur-xl">
         <button
           type="button"
           onClick={toggleRail}
           aria-label="Expand filters"
-          className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+          className="rounded-md p-1.5 text-muted transition-colors hover:bg-content/10 hover:text-content"
         >
           <PanelLeftOpen className="h-4 w-4" />
         </button>
-        <span className="my-1 h-px w-5 bg-white/10" />
+        <span className="my-1 h-px w-5 bg-content/10" />
         {NODE_TYPES.map((t) => (
           <span
             key={t}
             title={TYPE_LABEL[t]}
             className="h-2.5 w-2.5 rounded-full"
-            style={{ backgroundColor: TYPE_COLOR[t], opacity: hiddenTypes.has(t) ? 0.25 : 1 }}
+            style={{ backgroundColor: nodeTypeColor(t, theme), opacity: hiddenTypes.has(t) ? 0.25 : 1 }}
           />
         ))}
       </div>
@@ -189,10 +189,10 @@ export const FilterRail = (): React.ReactElement => {
       initial={{ width: 0, opacity: 0 }}
       animate={{ width: 248, opacity: 1 }}
       transition={spring}
-      className="flex h-full shrink-0 flex-col overflow-hidden border-r border-white/[0.06] bg-[#0a0b12]/55 backdrop-blur-xl"
+      className="flex h-full shrink-0 flex-col overflow-hidden border-r border-line bg-surface backdrop-blur-xl"
     >
       <div className="flex items-center justify-between px-4 py-3.5">
-        <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+        <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
           <Boxes className="h-4 w-4 text-accent" />
           Filters
         </span>
@@ -200,7 +200,7 @@ export const FilterRail = (): React.ReactElement => {
           type="button"
           onClick={toggleRail}
           aria-label="Collapse filters"
-          className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-200"
+          className="rounded-md p-1 text-faint transition-colors hover:bg-content/10 hover:text-content"
         >
           <PanelLeftClose className="h-4 w-4" />
         </button>
@@ -248,7 +248,7 @@ export const FilterRail = (): React.ReactElement => {
             {NODE_TYPES.map((t) => (
               <FilterRow
                 key={t}
-                color={TYPE_COLOR[t]}
+                color={nodeTypeColor(t, theme)}
                 label={TYPE_LABEL[t]}
                 hidden={hiddenTypes.has(t)}
                 swatch="dot"
@@ -263,7 +263,7 @@ export const FilterRail = (): React.ReactElement => {
             {EDGE_TYPES.map((e) => (
               <FilterRow
                 key={e}
-                color={EDGE_COLOR[e] ?? 'rgba(148,163,184,0.6)'}
+                color={edgeTypeColor(e, theme)}
                 label={EDGE_LABEL[e] ?? e}
                 hidden={hiddenEdges.has(e)}
                 swatch="line"

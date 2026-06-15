@@ -8,6 +8,19 @@
   --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Menlo', monospace;
   --color-accent: #ff6a2b; /* ember — selection / focus / execution */
   --color-signal: #3fd9c4; /* teal — edges-in-motion / live */
+
+  /* Semantic chrome tokens — backed by the ramp vars below so a single
+     `[data-theme]` override recolors every `bg-surface`/`text-content`/
+     `border-line` utility. Components must use these, never raw hex, so the
+     light theme actually applies. */
+  --color-page: var(--page-bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-content: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
 }
 
 /* Surface / line / text ramp + status hues. Neutral ramp tuned so meaningful

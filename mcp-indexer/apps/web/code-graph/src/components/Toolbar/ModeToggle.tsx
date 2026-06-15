@@ -14,7 +14,7 @@ export const ModeToggle = ({
   mode,
   onChange,
 }: ModeToggleProps): React.ReactElement => (
-  <div className="flex rounded-lg border border-white/[0.07] bg-white/[0.03] p-0.5 backdrop-blur-xl">
+  <div className="flex rounded-lg border border-line bg-content/5 p-0.5 backdrop-blur-xl">
     {OPTIONS.map((option) => (
       <button
         key={option.value}
@@ -22,8 +22,8 @@ export const ModeToggle = ({
         onClick={() => onChange(option.value)}
         className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
           mode === option.value
-            ? 'bg-zinc-700/80 text-zinc-100'
-            : 'text-zinc-500 hover:text-zinc-300'
+            ? 'bg-content/10 text-content'
+            : 'text-faint hover:text-muted'
         }`}
       >
         {option.label}

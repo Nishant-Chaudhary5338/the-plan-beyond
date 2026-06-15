@@ -90,8 +90,8 @@ export const ChatPanel = ({
       aria-label="Ask the codebase"
       className="animate-rise glass absolute bottom-5 right-5 flex h-[28rem] w-96 flex-col rounded-2xl"
     >
-      <header className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
-        <span className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+      <header className="flex items-center justify-between border-b border-line px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-content">
           <MessageSquare className="h-4 w-4 text-accent" />
           Ask the codebase
         </span>
@@ -99,7 +99,7 @@ export const ChatPanel = ({
           type="button"
           onClick={() => setOpen(false)}
           aria-label="Close chat"
-          className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+          className="rounded p-1 text-muted transition-colors hover:bg-content/10 hover:text-content"
         >
           <X className="h-4 w-4" />
         </button>
@@ -108,8 +108,8 @@ export const ChatPanel = ({
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {turns.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center px-2 text-center">
-            <MessageSquare className="mb-2 h-6 w-6 text-zinc-600" aria-hidden="true" />
-            <p className="mb-3 text-sm text-zinc-400">
+            <MessageSquare className="mb-2 h-6 w-6 text-faint" aria-hidden="true" />
+            <p className="mb-3 text-sm text-muted">
               Ask anything about this codebase
             </p>
             <div className="flex flex-wrap justify-center gap-1.5">
@@ -118,7 +118,7 @@ export const ChatPanel = ({
                   key={example}
                   type="button"
                   onClick={() => setQuestion(example)}
-                  className="rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 hover:border-zinc-600 hover:text-zinc-100"
+                  className="rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:border-line-strong hover:text-content"
                 >
                   {example}
                 </button>
@@ -128,7 +128,7 @@ export const ChatPanel = ({
         )}
         {turns.map((turn, i) => (
           <div key={i} className="space-y-1.5">
-            <p className="text-sm font-medium text-zinc-200">{turn.question}</p>
+            <p className="text-sm font-medium text-content">{turn.question}</p>
             {turn.result ? (
               <ChatAnswer
                 result={turn.result}
@@ -136,7 +136,7 @@ export const ChatPanel = ({
                 resolveCitation={resolveCitation}
               />
             ) : turn.error ? (
-              <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 p-2.5 text-xs text-rose-200 ring-1 ring-rose-400/20">
+              <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 p-2.5 text-xs text-(--status-error) ring-1 ring-rose-400/20">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <div className="min-w-0">
                   <p>Couldn’t reach the indexer.</p>
@@ -144,7 +144,7 @@ export const ChatPanel = ({
                     type="button"
                     onClick={() => retry(i)}
                     disabled={loading}
-                    className="mt-1 font-medium text-rose-100 underline underline-offset-2 hover:text-white disabled:opacity-50"
+                    className="mt-1 font-medium text-(--status-error) underline underline-offset-2 hover:text-content disabled:opacity-50"
                   >
                     Retry
                   </button>
@@ -152,7 +152,7 @@ export const ChatPanel = ({
               </div>
             ) : (
               <Loader2
-                className="h-4 w-4 animate-spin text-zinc-400"
+                className="h-4 w-4 animate-spin text-muted"
                 aria-label="Thinking…"
                 role="status"
               />
@@ -161,7 +161,7 @@ export const ChatPanel = ({
         ))}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-white/[0.06] px-3 py-2.5">
+      <div className="flex items-center gap-2 border-t border-line px-3 py-2.5">
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
@@ -170,7 +170,7 @@ export const ChatPanel = ({
           }}
           aria-label="Ask a question about the codebase"
           placeholder="Ask a question…"
-          className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-1.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-500 focus:border-accent/40"
+          className="flex-1 rounded-lg border border-line bg-content/5 px-3 py-1.5 text-sm text-content outline-none placeholder:text-faint focus:border-accent/40"
         />
         <button
           type="button"
@@ -195,8 +195,8 @@ const ChatAnswer = ({
   onCite: (id: string) => void;
   resolveCitation: (id: string) => CitationInfo | null;
 }): React.ReactElement => (
-  <div className="rounded-lg bg-zinc-900/70 p-3">
-    <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+  <div className="rounded-lg bg-surface p-3">
+    <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
       {result.answer}
     </p>
     {result.citations.length > 0 && (
@@ -209,7 +209,7 @@ const ChatAnswer = ({
               type="button"
               onClick={() => onCite(id)}
               title={id}
-              className="flex max-w-full items-center gap-1.5 rounded bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-300 hover:text-zinc-100"
+              className="flex max-w-full items-center gap-1.5 rounded bg-surface px-2 py-0.5 text-[11px] text-muted hover:text-content"
             >
               {info && (
                 <span
@@ -227,7 +227,7 @@ const ChatAnswer = ({
       </div>
     )}
     {!result.usedLlm && (
-      <p className="mt-1.5 text-[11px] text-zinc-400">keyword match (no LLM)</p>
+      <p className="mt-1.5 text-[11px] text-muted">keyword match (no LLM)</p>
     )}
   </div>
 );

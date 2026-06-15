@@ -69,8 +69,8 @@ export const App = (): React.ReactElement => {
     return (
       <Centered>
         <Loader2 className="h-6 w-6 animate-spin text-accent" />
-        <p className="mt-3 text-sm text-zinc-300">Indexing your codebase…</p>
-        <p className="mt-1 text-xs text-zinc-400">
+        <p className="mt-3 text-sm text-muted">Indexing your codebase…</p>
+        <p className="mt-1 text-xs text-muted">
           Parsing files, packages and dependencies
         </p>
       </Centered>
@@ -79,12 +79,12 @@ export const App = (): React.ReactElement => {
   if (state === 'error' || !index || !focusId) {
     return (
       <Centered>
-        <span className="text-sm text-rose-400">
+        <span className="text-sm text-(--status-error)">
           {error ?? 'No graph available.'}
         </span>
-        <span className="mt-2 text-xs text-zinc-400">
+        <span className="mt-2 text-xs text-muted">
           Start the indexer:{' '}
-          <code className="font-mono text-zinc-200">
+          <code className="font-mono text-content">
             pnpm --filter indexer-server start
           </code>
         </span>
@@ -104,9 +104,9 @@ export const App = (): React.ReactElement => {
   if ((snapshot?.meta.nodeCount ?? 0) <= 1) {
     return (
       <Centered>
-        <FolderOpen className="h-6 w-6 text-zinc-400" aria-hidden="true" />
-        <p className="mt-3 text-sm text-zinc-300">Nothing to graph yet</p>
-        <p className="mt-1 max-w-xs text-center text-xs text-zinc-400">
+        <FolderOpen className="h-6 w-6 text-muted" aria-hidden="true" />
+        <p className="mt-3 text-sm text-muted">Nothing to graph yet</p>
+        <p className="mt-1 max-w-xs text-center text-xs text-muted">
           The indexer found no source files. Point it at a TypeScript/React repo,
           then re-index.
         </p>
@@ -137,16 +137,16 @@ export const App = (): React.ReactElement => {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-white/[0.06] bg-[#0a0b12]/60 px-5 py-3 backdrop-blur-xl">
+      <header className="flex items-center justify-between border-b border-line bg-surface px-5 py-3 backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-3">
           {/* Wordmark lockup — gives the tool an identity, not just an icon. */}
           <span className="flex shrink-0 items-center gap-2">
             <Boxes className="h-5 w-5 text-accent" />
-            <span className="hidden text-sm font-semibold tracking-tight text-zinc-100 sm:inline">
+            <span className="hidden text-sm font-semibold tracking-tight text-content sm:inline">
               Code Graph
             </span>
           </span>
-          <span className="h-4 w-px shrink-0 bg-white/10" aria-hidden="true" />
+          <span className="h-4 w-px shrink-0 bg-content/10" aria-hidden="true" />
           <Breadcrumbs path={breadcrumbPath} onNavigate={drillTo} />
         </div>
         <div className="flex items-center gap-3">
@@ -155,11 +155,11 @@ export const App = (): React.ReactElement => {
             type="button"
             onClick={() => setPaletteOpen(true)}
             aria-label="Find a node"
-            className="flex items-center gap-1.5 rounded-lg border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/[0.08] hover:text-zinc-100"
+            className="flex items-center gap-1.5 rounded-lg border border-line bg-content/5 px-2.5 py-1 text-xs text-muted hover:bg-content/10 hover:text-content"
           >
             <Search className="h-3.5 w-3.5" />
             Find
-            <kbd className="ml-0.5 rounded bg-white/[0.06] px-1 py-0.5 text-[10px] text-zinc-400">
+            <kbd className="ml-0.5 rounded bg-content/10 px-1 py-0.5 text-[10px] text-muted">
               ⌘K
             </kbd>
           </button>
@@ -244,7 +244,7 @@ const Centered = ({
 }: {
   children: React.ReactNode;
 }): React.ReactElement => (
-  <div className="flex h-full flex-col items-center justify-center text-zinc-400">
+  <div className="flex h-full flex-col items-center justify-center text-muted">
     {children}
   </div>
 );

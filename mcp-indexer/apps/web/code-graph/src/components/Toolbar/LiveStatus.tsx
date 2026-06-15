@@ -34,7 +34,7 @@ export const LiveStatus = ({
 
   return (
     <span
-      className="hidden items-center gap-1.5 text-xs text-zinc-400 sm:flex"
+      className="hidden items-center gap-1.5 text-xs text-muted sm:flex"
       title="The graph re-indexes live as you edit files"
     >
       <span className="relative flex h-2 w-2" aria-hidden="true">

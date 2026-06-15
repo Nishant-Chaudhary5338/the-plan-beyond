@@ -60,7 +60,7 @@ const EdgeSwatch = ({
 );
 
 export const Legend = ({ mode }: LegendProps): React.ReactElement => (
-  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-zinc-400">
+  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
     {mode === 'type'
       ? TYPE_ORDER.map((type) => (
           <Swatch key={type} color={TYPE_COLOR[type]} label={TYPE_LABEL[type]} />
@@ -72,7 +72,7 @@ export const Legend = ({ mode }: LegendProps): React.ReactElement => (
             label={item.label}
           />
         ))}
-    <span className="mx-0.5 h-3 w-px bg-zinc-700" aria-hidden />
+    <span className="mx-0.5 h-3 w-px bg-line" aria-hidden />
     {EDGE_ORDER.map((type) => (
       <EdgeSwatch
         key={type}
