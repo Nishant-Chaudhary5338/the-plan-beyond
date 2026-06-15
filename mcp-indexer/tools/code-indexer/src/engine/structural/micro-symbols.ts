@@ -180,6 +180,7 @@ export const extractFile = (
   workspaceRoot: string,
   folders: Map<string, GraphNode>,
   folderEdges: GraphEdge[],
+  workspacePackages: ReadonlySet<string>,
 ): FileExtraction => {
   const ownerId = ownerNodeId(pkg);
   const contentHash = hashContent(source.getFullText());
@@ -211,7 +212,10 @@ export const extractFile = (
       weight: 1,
     },
     ...symbols.edges,
-    ...extractImportEdges(source, rel, workspaceRoot),
+    ...extractImportEdges(source, rel, workspaceRoot, {
+      externals: true,
+      workspacePackages,
+    }),
   ];
 
   return { rel, contentHash, nodes, edges, symbols: symbols.symbols };
@@ -252,6 +256,10 @@ export const indexStructure = (
   }> = [];
   let reusedFiles = 0;
   let reparsedFiles = 0;
+
+  // Names of every package in this workspace — used to keep monorepo sibling
+  // imports (e.g. `@repo/ui`) from being misclassified as external node_modules.
+  const workspacePackages = new Set(workspace.packages.map((p) => p.name));
 
   for (const pkg of workspace.packages) {
     let project: Project;
@@ -301,6 +309,7 @@ export const indexStructure = (
           workspace.root,
           folders,
           edges,
+          workspacePackages,
         );
         nodes.push(...result.nodes);
         edges.push(...result.edges);
@@ -350,6 +359,26 @@ export const indexStructure = (
         `[code-indexer] semantic edges skipped ${input.rel}: ${(err as Error).message}`,
       );
     }
+  }
+
+  // Materialize a leaf node for every external (node_modules) package referenced
+  // by an `ext:` edge, so third-party dependencies appear in the graph. Derived
+  // from the final edge set (not per-file), so it stays correct under incremental
+  // reuse — reused files carry their `ext:` edges, externals are recomputed here.
+  const externalIds = new Set<string>();
+  for (const edge of edges) {
+    if (edge.target.startsWith('ext:')) externalIds.add(edge.target);
+  }
+  for (const id of externalIds) {
+    nodes.push({
+      id,
+      type: 'external',
+      name: id.slice('ext:'.length),
+      parentId: null,
+      status: emptyStatus(),
+      knowledge: null,
+      git: null,
+    });
   }
 
   return {

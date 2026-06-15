@@ -100,6 +100,7 @@ export const TYPE_LABEL: Record<NodeType, string> = {
   file: 'File',
   component: 'Component',
   function: 'Function',
+  external: 'External',
 };
 
 export const EDGE_LABEL: Record<GraphEdge['type'], string> = {

@@ -20,6 +20,7 @@ const NODE_TYPES: NodeType[] = [
   'file',
   'component',
   'function',
+  'external',
 ];
 const TYPE_LABEL: Record<NodeType, string> = {
   repo: 'Repo',
@@ -29,6 +30,7 @@ const TYPE_LABEL: Record<NodeType, string> = {
   file: 'File',
   component: 'Component',
   function: 'Function',
+  external: 'External',
 };
 
 const EDGE_TYPES = [

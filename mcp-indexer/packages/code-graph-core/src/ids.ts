@@ -14,6 +14,9 @@ export const folderId = (relPath: string): string =>
 export const fileId = (relPath: string): string =>
   `file:${normalizePath(relPath)}`;
 
+/** A third-party (node_modules) package node, e.g. `ext:react`, `ext:@scope/x`. */
+export const externalId = (pkg: string): string => `ext:${pkg}`;
+
 export const componentId = (relPath: string, exportName: string): string =>
   `cmp:${normalizePath(relPath)}#${exportName}`;
 

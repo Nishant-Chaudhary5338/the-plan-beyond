@@ -14,6 +14,7 @@ export const TYPE_COLOR: Record<NodeType, string> = {
   file: '#B0B6BE', // light grey — the default grain (kept well clear of folder)
   component: '#FF6A2B', // EMBER — the star
   function: '#C792EA', // violet — behaviour / logic
+  external: '#C2A878', // warm tan — a third-party (node_modules) package
 };
 
 // The paper (#fbfbfa) counterpart: the dark-canvas hues (near-white repo, light
@@ -28,6 +29,7 @@ export const TYPE_COLOR_LIGHT: Record<NodeType, string> = {
   file: '#7C8698', // slate — the grain (lighter than folder, still reads on white)
   component: '#E8551A', // deepened ember (matches the light --color-accent)
   function: '#7C3AED', // violet-600
+  external: '#8A6D3B', // bronze — third-party package, distinct from the cool ramp
 };
 
 export const nodeTypeColor = (type: NodeType, theme: Theme): string =>

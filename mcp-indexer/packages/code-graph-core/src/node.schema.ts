@@ -10,6 +10,7 @@ export const NodeType = z.enum([
   'file',
   'component',
   'function',
+  'external',
 ]);
 export type NodeType = z.infer<typeof NodeType>;
 
@@ -113,6 +114,17 @@ export type ComponentNode = z.infer<typeof ComponentNode>;
 export const FunctionNode = SymbolNode('function');
 export type FunctionNode = z.infer<typeof FunctionNode>;
 
+// A third-party package pulled from node_modules (e.g. `react`, `@scope/pkg`).
+// It has no path/span/metrics on disk — it is a leaf the project depends ON,
+// surfaced so the graph shows real external dependencies, not just internal ones.
+export const ExternalNode = z
+  .object({
+    ...baseFields,
+    type: z.literal('external'),
+  })
+  .strict();
+export type ExternalNode = z.infer<typeof ExternalNode>;
+
 export const GraphNode = z.discriminatedUnion('type', [
   RepoNode,
   AppNode,
@@ -121,6 +133,7 @@ export const GraphNode = z.discriminatedUnion('type', [
   FileNode,
   ComponentNode,
   FunctionNode,
+  ExternalNode,
 ]);
 export type GraphNode = z.infer<typeof GraphNode>;
 

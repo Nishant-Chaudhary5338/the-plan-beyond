@@ -220,6 +220,7 @@ export class IndexerSession {
       source: SourceFile;
       symbols: EmittedSymbol[];
     }> = [];
+    const workspacePackages = new Set(this.getPackages().map((p) => p.name));
     for (const { rel, pkg, project, source } of targets) {
       try {
         const result = extractFile(
@@ -229,6 +230,7 @@ export class IndexerSession {
           workspaceRoot,
           folders,
           folderEdges,
+          workspacePackages,
         );
         snapshot.nodes.push(...result.nodes);
         snapshot.edges.push(...result.edges);
